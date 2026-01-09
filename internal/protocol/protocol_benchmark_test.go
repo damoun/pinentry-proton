@@ -120,7 +120,7 @@ func BenchmarkSessionReset(b *testing.B) {
 		prompt:      "PIN:",
 		title:       "Test Title",
 		keyInfo:     "ABCD1234",
-		error:   "error",
+		error:       "error",
 		sensitiveData: [][]byte{
 			[]byte("password1"),
 			[]byte("password2"),

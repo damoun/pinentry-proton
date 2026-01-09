@@ -1,3 +1,4 @@
+//go:build realpass
 // +build realpass
 
 package e2e

@@ -79,6 +79,33 @@ coverage:
 	$(GOCMD) tool cover -html=coverage.txt -o coverage.html
 	@echo "Coverage report generated: coverage.html"
 
+## test-unit: Run unit tests only (internal packages)
+test-unit:
+	$(GOTEST) -v -race ./internal/...
+
+## test-coverage: Generate detailed coverage report
+test-coverage:
+	$(GOTEST) -v -race -coverprofile=coverage.out ./internal/...
+	$(GOCMD) tool cover -html=coverage.out -o coverage.html
+	$(GOCMD) tool cover -func=coverage.out
+	@echo ""
+	@echo "Coverage report: coverage.html"
+
+## test-coverage-check: Verify coverage meets 75% threshold
+test-coverage-check: test-coverage
+	@coverage=$$($(GOCMD) tool cover -func=coverage.out | grep total | awk '{print $$3}' | sed 's/%//'); \
+	echo "Total coverage: $${coverage}%"; \
+	if [ $$(echo "$${coverage} < 75.0" | bc -l) -eq 1 ]; then \
+		echo "ERROR: Coverage $${coverage}% is below minimum 75%"; \
+		exit 1; \
+	else \
+		echo "✅ Coverage meets minimum threshold (75%)"; \
+	fi
+
+## test-ci: Run all CI tests (unit + coverage check)
+test-ci: test-unit test-coverage-check
+	@echo "✅ All CI tests passed!"
+
 ## lint: Run linters
 lint:
 	@if command -v golangci-lint >/dev/null 2>&1; then \

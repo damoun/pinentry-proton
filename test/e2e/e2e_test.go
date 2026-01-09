@@ -115,9 +115,12 @@ func TestE2E_FullProtocolFlow(t *testing.T) {
 
 // TestE2E_GPGWorkflow tests GPG-specific context and matching
 func TestE2E_GPGWorkflow(t *testing.T) {
-	t.Skip("TODO: Fix mock CLI wrapper setup - password retrieval returns empty")
 	binary := getBinaryPath(t)
-	mockCLI := testutil.CreateMockPassCLI(t, "gpg", "signing-key", "password", testPassword)
+
+	// Create a default mock for fallback
+	defaultMock := testutil.CreateMockPassCLI(t, testVault, testItem, "password", testPassword)
+	// Create GPG-specific mock
+	gpgMock := testutil.CreateMockPassCLI(t, "gpg", "signing-key", "password", testPassword)
 
 	// Create config with GPG mapping
 	config := testutil.TestConfig{
@@ -137,12 +140,30 @@ func TestE2E_GPGWorkflow(t *testing.T) {
 	tmpDir, _ := testutil.SetupTestEnvironment(t)
 	configPath := testutil.CreateTestConfig(t, config)
 
-	// Create wrapper script for mock CLI
+	// Copy mock to bin directory and fix data file paths
 	binDir := filepath.Join(tmpDir, "bin")
 	os.MkdirAll(binDir, 0755)
+
 	passCLIPath := filepath.Join(binDir, "pass-cli")
-	wrapper := fmt.Sprintf("#!/bin/bash\nexec '%s' \"$@\"\n", mockCLI)
-	os.WriteFile(passCLIPath, []byte(wrapper), 0755)
+	newDataPath := passCLIPath + ".data"
+
+	// Read mock script and data files
+	gpgScript, _ := os.ReadFile(gpgMock)
+	gpgData, _ := os.ReadFile(gpgMock + ".data")
+	defaultData, _ := os.ReadFile(defaultMock + ".data")
+
+	// Replace all occurrences of the old data file path with the new absolute path
+	scriptContent := string(gpgScript)
+	scriptContent = strings.ReplaceAll(scriptContent, gpgMock+".data", newDataPath)
+	scriptContent = strings.ReplaceAll(scriptContent, gpgMock+".latency", passCLIPath+".latency")
+	scriptContent = strings.ReplaceAll(scriptContent, gpgMock+".failure", passCLIPath+".failure")
+
+	// Write the modified script
+	os.WriteFile(passCLIPath, []byte(scriptContent), 0755)
+
+	// Merge and write data files
+	mergedData := string(gpgData) + "\n" + string(defaultData)
+	os.WriteFile(newDataPath, []byte(mergedData), 0644)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -179,6 +200,7 @@ func TestE2E_GPGWorkflow(t *testing.T) {
 	scanner.Scan() // OK
 
 	decodedPassword := percentDecode(strings.TrimPrefix(dataLine, "D "))
+
 	testutil.AssertEqual(t, testPassword, decodedPassword, "Should retrieve GPG key password")
 
 	fmt.Fprintf(stdin, "BYE\n")
@@ -189,9 +211,11 @@ func TestE2E_GPGWorkflow(t *testing.T) {
 
 // TestE2E_SSHWorkflow tests SSH-specific context and matching
 func TestE2E_SSHWorkflow(t *testing.T) {
-	t.Skip("TODO: Fix mock CLI wrapper setup - password retrieval returns empty")
 	binary := getBinaryPath(t)
-	mockCLI := testutil.CreateMockPassCLI(t, "ssh", "github-key", "password", testPassword)
+
+	// Create mocks for default and SSH-specific items
+	defaultMock := testutil.CreateMockPassCLI(t, testVault, testItem, "password", testPassword)
+	sshMock := testutil.CreateMockPassCLI(t, "ssh", "github-key", "password", testPassword)
 
 	config := testutil.TestConfig{
 		DefaultItem: fmt.Sprintf("pass://%s/%s/password", testVault, testItem),
@@ -210,12 +234,30 @@ func TestE2E_SSHWorkflow(t *testing.T) {
 	tmpDir, _ := testutil.SetupTestEnvironment(t)
 	configPath := testutil.CreateTestConfig(t, config)
 
-	// Create wrapper script for mock CLI
+	// Copy mock to bin directory and fix data file paths
 	binDir := filepath.Join(tmpDir, "bin")
 	os.MkdirAll(binDir, 0755)
+
 	passCLIPath := filepath.Join(binDir, "pass-cli")
-	wrapper := fmt.Sprintf("#!/bin/bash\nexec '%s' \"$@\"\n", mockCLI)
-	os.WriteFile(passCLIPath, []byte(wrapper), 0755)
+	newDataPath := passCLIPath + ".data"
+
+	// Read mock script and data files
+	sshScript, _ := os.ReadFile(sshMock)
+	sshData, _ := os.ReadFile(sshMock + ".data")
+	defaultData, _ := os.ReadFile(defaultMock + ".data")
+
+	// Replace all occurrences of the old data file path with the new absolute path
+	scriptContent := string(sshScript)
+	scriptContent = strings.ReplaceAll(scriptContent, sshMock+".data", newDataPath)
+	scriptContent = strings.ReplaceAll(scriptContent, sshMock+".latency", passCLIPath+".latency")
+	scriptContent = strings.ReplaceAll(scriptContent, sshMock+".failure", passCLIPath+".failure")
+
+	// Write modified script
+	os.WriteFile(passCLIPath, []byte(scriptContent), 0755)
+
+	// Merge and write data files
+	mergedData := string(sshData) + "\n" + string(defaultData)
+	os.WriteFile(newDataPath, []byte(mergedData), 0644)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -261,7 +303,11 @@ func TestE2E_SSHWorkflow(t *testing.T) {
 
 // TestE2E_ContextMatching tests configuration matching logic
 func TestE2E_ContextMatching(t *testing.T) {
-	t.Skip("TODO: Fix mock CLI wrapper setup - password retrieval returns empty")
+	// Create all mocks for the different vault/item combinations used in subtests
+	mockGPGKey1 := testutil.CreateMockPassCLI(t, "gpg", "key1", "password", testPassword)
+	mockGPGKey2 := testutil.CreateMockPassCLI(t, "gpg", "key2", "password", testPassword)
+	mockDefault := testutil.CreateMockPassCLI(t, "default", "item", "password", testPassword)
+
 	tests := []struct {
 		name        string
 		description string
@@ -295,7 +341,6 @@ func TestE2E_ContextMatching(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			binary := getBinaryPath(t)
-			mockCLI := testutil.CreateMockPassCLI(t, tt.vault, tt.item, "password", testPassword)
 
 			config := testutil.TestConfig{
 				DefaultItem: "pass://default/item/password",
@@ -321,12 +366,31 @@ func TestE2E_ContextMatching(t *testing.T) {
 			tmpDir, _ := testutil.SetupTestEnvironment(t)
 			configPath := testutil.CreateTestConfig(t, config)
 
-			// Create wrapper script for mock CLI
+			// Copy mock to bin directory and fix data file paths
 			binDir := filepath.Join(tmpDir, "bin")
 			os.MkdirAll(binDir, 0755)
+
 			passCLIPath := filepath.Join(binDir, "pass-cli")
-			wrapper := fmt.Sprintf("#!/bin/bash\nexec '%s' \"$@\"\n", mockCLI)
-			os.WriteFile(passCLIPath, []byte(wrapper), 0755)
+			newDataPath := passCLIPath + ".data"
+
+			// Read one mock script and all data files
+			mockScript, _ := os.ReadFile(mockGPGKey1)
+			gpgKey1Data, _ := os.ReadFile(mockGPGKey1 + ".data")
+			gpgKey2Data, _ := os.ReadFile(mockGPGKey2 + ".data")
+			defaultData, _ := os.ReadFile(mockDefault + ".data")
+
+			// Replace all occurrences of the old data file path with the new absolute path
+			scriptContent := string(mockScript)
+			scriptContent = strings.ReplaceAll(scriptContent, mockGPGKey1+".data", newDataPath)
+			scriptContent = strings.ReplaceAll(scriptContent, mockGPGKey1+".latency", passCLIPath+".latency")
+			scriptContent = strings.ReplaceAll(scriptContent, mockGPGKey1+".failure", passCLIPath+".failure")
+
+			// Write modified script
+			os.WriteFile(passCLIPath, []byte(scriptContent), 0755)
+
+			// Merge all data files
+			mergedData := string(gpgKey1Data) + "\n" + string(gpgKey2Data) + "\n" + string(defaultData)
+			os.WriteFile(newDataPath, []byte(mergedData), 0644)
 
 			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 			defer cancel()
@@ -594,7 +658,13 @@ func getBinaryPath(t *testing.T) string {
 	if _, err := os.Stat(binary); err != nil {
 		t.Fatalf("Binary not found at %s. Run 'make build' first: %v", binary, err)
 	}
-	return binary
+
+	// Convert to absolute path so it works regardless of cmd.Dir
+	absPath, err := filepath.Abs(binary)
+	if err != nil {
+		t.Fatalf("Failed to get absolute path for binary: %v", err)
+	}
+	return absPath
 }
 
 func createE2EConfig(t *testing.T, mockCLI, vault, item string) (string, string) {

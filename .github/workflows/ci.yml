@@ -10,6 +10,29 @@ permissions:
   contents: read
 
 jobs:
+  pre-commit:
+    name: Pre-commit Hooks
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.22'
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.x'
+
+    - name: Run pre-commit hooks
+      uses: pre-commit/action@v3.0.1
+      with:
+        extra_args: --hook-stage push --all-files
+
   test:
     name: Test
     strategy:

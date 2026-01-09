@@ -1,4 +1,4 @@
-.PHONY: build install test coverage lint clean help
+.PHONY: build install test coverage lint clean help test-unit test-e2e test-realpass benchmark benchmark-save benchmark-compare
 
 # Build variables
 BINARY_NAME=pinentry-proton
@@ -106,6 +106,36 @@ test-coverage-check: test-coverage
 test-ci: test-unit test-coverage-check
 	@echo "✅ All CI tests passed!"
 
+## test-e2e: Run end-to-end tests
+test-e2e: build
+	$(GOTEST) -v -race ./test/e2e/...
+
+## test-realpass: Run tests with real ProtonPass (requires auth)
+test-realpass:
+	@echo "Running tests with real pass-cli..."
+	@echo "Requires: pass-cli authenticated + test vault"
+	$(GOTEST) -v -tags=realpass ./...
+
+## benchmark: Run all benchmarks
+benchmark:
+	$(GOTEST) -bench=. -benchmem -run=^$$ ./internal/...
+
+## benchmark-save: Save benchmark baseline
+benchmark-save:
+	$(GOTEST) -bench=. -benchmem -run=^$$ ./internal/... | tee benchmark-baseline.txt
+	@echo "Benchmark baseline saved to benchmark-baseline.txt"
+
+## benchmark-compare: Compare with baseline (requires benchstat)
+benchmark-compare: benchmark-save
+	$(GOTEST) -bench=. -benchmem -run=^$$ ./internal/... > benchmark-current.txt
+	@echo ""
+	@echo "Comparing benchmarks (install benchstat: go install golang.org/x/perf/cmd/benchstat@latest)"
+	@if command -v benchstat >/dev/null 2>&1; then \
+		benchstat benchmark-baseline.txt benchmark-current.txt; \
+	else \
+		echo "benchstat not found. Install it with: go install golang.org/x/perf/cmd/benchstat@latest"; \
+	fi
+
 ## lint: Run linters
 lint:
 	@if command -v golangci-lint >/dev/null 2>&1; then \
@@ -135,7 +165,8 @@ mod-download:
 clean:
 	$(GOCLEAN)
 	rm -f $(BINARY_NAME)
-	rm -f coverage.txt coverage.html
+	rm -f coverage.txt coverage.html coverage.out
+	rm -f benchmark-baseline.txt benchmark-current.txt benchmark.txt
 	rm -f *.prof
 
 ## check: Run all checks (fmt, vet, lint, test)

@@ -28,6 +28,34 @@ A secure pinentry program that integrates ProtonPass with GPG and SSH agents. Th
 - **No secrets in logs**: Never logs passwords or sensitive data
 - **Timeout support**: Configurable timeouts for password retrieval
 
+## Workflow: Sign Commits Without Repeated PIN Entry
+
+**Primary Use Case:** Sign git commits (and perform other GPG/SSH operations) seamlessly without manual PIN entry.
+
+**How it works in practice:**
+
+1. **Unlock ProtonPass once** - Authenticate to ProtonPass UI/CLI at the start of your session
+2. **Work normally** - When GPG needs to unlock your smartcard/key (e.g., to sign a commit), it calls pinentry-proton
+3. **Automatic retrieval** - pinentry-proton automatically fetches your PIN from ProtonPass
+4. **Seamless operation** - Your commit gets signed without interrupting your workflow
+5. **Multiple operations** - Sign multiple commits, encrypt files, SSH operations - all without re-entering PINs
+
+**Example workflow:**
+```bash
+# Unlock ProtonPass once at the start of your day
+pass-cli auth login
+
+# Now sign commits seamlessly
+git commit -S -m "feat: add new feature"    # Signs without prompting for PIN
+git commit -S -m "fix: resolve bug"         # Signs without prompting for PIN
+git commit -S -m "docs: update README"      # Signs without prompting for PIN
+
+# SSH operations also work seamlessly
+ssh git@github.com                           # Uses key without prompting for passphrase
+```
+
+**Key Benefit:** Eliminates repetitive PIN/passphrase entry while maintaining security through ProtonPass authentication.
+
 ## How It Works
 
 1. GPG/SSH agent requests a PIN via the pinentry protocol

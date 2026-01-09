@@ -9,18 +9,26 @@ A comprehensive test suite covering unit tests, protocol integration, and real-w
 ### Test Suite Summary
 
 **Test Types:**
-- **Unit Tests** - Go package tests for config, protocol, and protonpass packages
+- **Unit Tests** - Go package tests for config, protocol, protonpass, and platform packages
+- **End-to-End Tests** - Complete application flow tests with mock ProtonPass (no authentication required)
 - **Integration Tests** - Binary protocol tests using real pinentry commands
+- **Benchmark Tests** - Performance baseline and regression testing
 - **GPG Integration** - Real GPG signing, verification, encryption, and decryption
 - **SSH Integration** - Real SSH key operations and agent interaction
 
 **Test Infrastructure:**
+- **566 lines** of unit tests for protonpass package (88.2% coverage)
+- **120 lines** of platform tests (100% coverage)
+- **639 lines** of E2E tests with sophisticated mock infrastructure
+- **526 lines** of benchmark tests across all packages
+- **Overall coverage: 82.4%** (target: 75%)
 - 8 Go integration tests covering complete pinentry protocol
-- GPG end-to-end test with real cryptographic operations
-- SSH end-to-end test with real key operations
-- Mock ProtonPass CLI for isolated testing
+- GPG/SSH end-to-end tests with real cryptographic operations
+- Shared test utilities in `test/testutil/` for reusable mock infrastructure
+- Mock ProtonPass CLI implementation for CI/CD testing
 - Test key infrastructure (GPG + SSH with passphrase 424242)
 - Comprehensive Makefile targets for easy test execution
+- CI/CD pipeline with coverage enforcement
 
 **Quick Start:**
 ```bash
@@ -102,17 +110,37 @@ cd test
 
 ```
 test/
-├── fixtures/              # Test data and keys
-│   ├── gnupg/            # GPG test keyring
-│   ├── ssh/              # SSH test keys
-│   ├── test-config.yaml  # Test configuration
-│   └── README.md         # Fixture documentation
-├── integration_test.go   # Go integration tests
-├── setup_test_keys.sh    # Key creation script
-├── test_gpg.sh          # GPG integration test
-├── test_ssh.sh          # SSH integration test
-├── run_go_tests.sh      # Go test runner
-└── run_all_tests.sh     # Master test runner
+├── fixtures/                 # Test data and keys
+│   ├── gnupg/               # GPG test keyring
+│   ├── ssh/                 # SSH test keys
+│   ├── test-config.yaml     # Test configuration
+│   └── README.md            # Fixture documentation
+├── testutil/                # Shared test utilities
+│   ├── fixtures.go          # Test helpers (config, assertions, setup)
+│   └── mock_pass.go         # Sophisticated mock ProtonPass CLI
+├── e2e/                     # End-to-end tests (no ProtonPass required)
+│   ├── e2e_test.go          # Mock-based E2E tests (639 lines)
+│   └── e2e_realpass_test.go # Optional real ProtonPass tests (build tag: realpass)
+├── integration_test.go      # Go integration tests
+├── setup_test_keys.sh       # Key creation script
+├── test_gpg.sh             # GPG integration test
+├── test_ssh.sh             # SSH integration test
+├── run_go_tests.sh         # Go test runner
+└── run_all_tests.sh        # Master test runner
+
+internal/
+├── config/
+│   ├── config_test.go           # Config unit tests
+│   └── config_benchmark_test.go # Config benchmarks (252 lines)
+├── protocol/
+│   ├── protocol_test.go              # Protocol unit tests
+│   ├── integration_test.go           # Protocol integration tests
+│   └── protocol_benchmark_test.go    # Protocol benchmarks (144 lines)
+├── protonpass/
+│   ├── client_test.go               # ProtonPass unit tests (566 lines)
+│   └── client_benchmark_test.go     # ProtonPass benchmarks (130 lines)
+└── platform/
+    └── platform_test.go             # Platform tests (120 lines)
 ```
 
 ## Unit Tests
@@ -134,6 +162,118 @@ Coverage:
 - Encoding/decoding utilities
 - Memory zeroing
 - Signal handling
+- ProtonPass client (88.2% coverage)
+- Platform abstraction (100% coverage)
+
+## End-to-End Tests
+
+Location: `test/e2e/`
+
+**True end-to-end tests that work in CI/CD without ProtonPass authentication.**
+
+These tests use sophisticated mock infrastructure to validate complete application workflows.
+
+### Key Features
+
+- **No ProtonPass Required** - Uses mock pass-cli implementation
+- **Fast Execution** - All E2E tests run in ~3 seconds
+- **Comprehensive Coverage** - Tests complete protocol flows, error handling, edge cases
+- **CI/CD Friendly** - Runs on GitHub Actions without authentication
+
+### Test Scenarios
+
+1. **TestE2E_FullProtocolFlow** - Complete protocol validation (SETDESC → GETPIN → BYE)
+2. **TestE2E_MultipleRequestsSameSession** - Multiple GETPIN requests in one session
+3. **TestE2E_LongPassword** - Passwords >1KB (tested with 2KB)
+4. **TestE2E_SpecialCharacters** - Unicode, symbols, quotes, spaces (newlines excluded - protocol limitation)
+5. **TestE2E_GPGWorkflow** - GPG signing context matching
+6. **TestE2E_SSHWorkflow** - SSH key unlock context matching
+
+### Running E2E Tests
+
+```bash
+# Build first (E2E tests need the binary)
+make build
+
+# Run E2E tests
+make test-e2e
+# or
+go test -v ./test/e2e/
+```
+
+### Optional: Real ProtonPass Tests
+
+For developers with authenticated ProtonPass:
+
+```bash
+# Run tests with real pass-cli (requires auth)
+make test-realpass
+# or
+go test -v -tags=realpass ./test/e2e/
+```
+
+**Requirements:**
+- Authenticated pass-cli
+- Test vault item: `pass://test/pinentry-code/password`
+- Password must be set in vault
+
+### Mock Infrastructure
+
+The E2E tests use shared utilities from `test/testutil/`:
+
+- **MockPassCLI** - Sophisticated mock with call tracking, latency simulation, failure injection
+- **Test Helpers** - Config generation, protocol assertions, environment setup
+- **Wrapper Scripts** - Ensures mock CLI is used instead of system pass-cli
+
+## Benchmark Tests
+
+Location: `internal/*/client_benchmark_test.go`, `internal/*/protocol_benchmark_test.go`, `internal/*/config_benchmark_test.go`
+
+Performance testing and regression detection.
+
+### Running Benchmarks
+
+```bash
+# Run all benchmarks
+make benchmark
+
+# Save baseline
+make benchmark-save
+
+# Compare with baseline (requires benchstat)
+make benchmark-compare
+```
+
+### Benchmark Coverage
+
+**ProtonPass Package:**
+- Password retrieval (~3ms with mock)
+- Long password handling (1KB)
+- Special character handling
+- URI parsing
+- Memory zeroing (0.95ns for 16B to 3.7µs for 1MB)
+
+**Protocol Package:**
+- Percent encoding at various sizes (8B to 16KB)
+- Encoding throughput: ~500 MB/s for large data
+- Escape/unescape operations
+- Round-trip encode/decode
+- Session reset operations
+
+**Config Package:**
+- Config loading (23µs small, 290µs for 100 mappings)
+- Context matching (O(1) for first match, O(n) for scanning)
+- Pattern matching (case-insensitive, wildcards)
+- Validation logic
+
+### Performance Insights
+
+```
+BenchmarkZeroBytes/16B-14      1000000000   0.95 ns/op   16826 MB/s
+BenchmarkZeroBytes/1MB-14         638046   3759 ns/op   278925 MB/s
+BenchmarkPercentEncode/1KB-14    1000000   2009 ns/op      509 MB/s
+BenchmarkFindItemForContext-14  26414796     92 ns/op       32 B/op
+```
 
 ## Integration Tests
 
@@ -290,20 +430,64 @@ This allows testing the pinentry protocol without requiring ProtonPass authentic
 
 ## Continuous Integration
 
-The test suite is designed for CI environments:
+The test suite is fully integrated with GitHub Actions CI/CD pipeline.
 
-```yaml
-# Example GitHub Actions
-- name: Setup test keys
-  run: make test-setup
+### CI Pipeline Features
 
-- name: Run all tests
-  run: make test-all
-  env:
-    PINENTRY_PROTON_CONFIG: test/fixtures/test-config.yaml
+- **Matrix Testing** - Tests on Ubuntu and macOS with Go 1.21 and 1.22
+- **Unit Tests** - All internal packages with race detection
+- **E2E Tests** - Mock-based tests (no ProtonPass authentication needed)
+- **Coverage Enforcement** - Fails if coverage drops below 75%
+- **Benchmarks** - Automated performance baseline tracking
+- **Pre-commit Hooks** - Format, vet, and lint checks
+- **Security Scanning** - Gosec vulnerability detection
+
+### GitHub Actions Workflow
+
+The CI workflow (`.github/workflows/ci.yml`) runs:
+
+1. **Pre-commit Hooks Job** - Fast checks (format, vet, lint)
+2. **Test Job** - Unit + E2E tests with coverage
+3. **Lint Job** - golangci-lint comprehensive checks
+4. **Build Job** - Multi-platform binary builds
+5. **Security Job** - Gosec security scanner
+6. **Benchmark Job** - Performance regression tracking
+
+### Coverage Enforcement
+
+Coverage is automatically checked in CI:
+
+```bash
+# CI runs this check
+make test-coverage-check
+
+# Fails if coverage < 75%
+ERROR: Coverage 72.5% is below minimum 75%
 ```
 
-**Important:** Never commit real ProtonPass credentials to CI.
+Current coverage: **82.4%** (✅ above 75% threshold)
+
+### Running CI Tests Locally
+
+```bash
+# Run the same tests as CI
+make test-ci
+
+# This runs:
+# - Unit tests with race detection
+# - Coverage generation
+# - Coverage threshold check
+```
+
+### Benchmark Tracking
+
+Benchmarks run automatically on every CI build:
+
+- Results stored as artifacts (30-day retention)
+- Compare performance across commits
+- Detect performance regressions
+
+**Important:** E2E tests use mock infrastructure, so **no ProtonPass authentication is needed** in CI.
 
 ## Test Coverage
 
@@ -446,10 +630,23 @@ Regular maintenance tasks:
 | Test Suite | Command | Duration | Requirements |
 |------------|---------|----------|--------------|
 | Unit | `make test` | ~2s | None |
+| Unit (internal only) | `make test-unit` | ~1s | None |
+| E2E (mock) | `make test-e2e` | ~3s | Binary built |
 | Integration | `make test-integration` | ~5s | Binary built |
+| Benchmarks | `make benchmark` | ~2min | None |
+| Coverage Check | `make test-coverage-check` | ~2s | None |
+| CI Suite | `make test-ci` | ~3s | None |
+| Real ProtonPass | `make test-realpass` | varies | ProtonPass auth, test vault |
 | GPG | `make test-gpg` | ~10s | GPG, test keys, ProtonPass |
 | SSH | `make test-ssh` | ~5s | SSH tools, test keys, ProtonPass |
 | All | `make test-all` | ~20s | All above |
+
+**Coverage Metrics:**
+- Overall: 82.4% (target: 75%)
+- ProtonPass: 88.2%
+- Platform: 100%
+- Config: 87.1%
+- Protocol: 77.4%
 
 ---
 

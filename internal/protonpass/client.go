@@ -27,6 +27,12 @@ func NewClient() *Client {
 	}
 }
 
+// SetCLIPath sets a custom path for the pass-cli executable
+// This is primarily used for testing with mock implementations
+func (c *Client) SetCLIPath(path string) {
+	c.cliPath = path
+}
+
 // RetrievePassword retrieves a password from ProtonPass using pass-cli
 func (c *Client) RetrievePassword(ctx context.Context, itemURI string) ([]byte, error) {
 	// Parse the ProtonPass URI: pass://VAULT/ITEM/FIELD
@@ -34,14 +40,24 @@ func (c *Client) RetrievePassword(ctx context.Context, itemURI string) ([]byte, 
 		log.Printf("[DEBUG] Retrieving password from: %s", itemURI)
 	}
 
+	// Validate URI format
+	if !strings.HasPrefix(itemURI, "pass://") {
+		return nil, fmt.Errorf("invalid item URI format: %s (expected: pass://vault/item[/field])", itemURI)
+	}
+
 	// Construct pass-cli command
 	itemPath := strings.TrimPrefix(itemURI, "pass://")
 	parts := strings.Split(itemPath, "/")
 
+	// Validate we have at least vault and item
 	if len(parts) < 2 {
 		return nil, fmt.Errorf("invalid item URI format: %s (expected: pass://vault/item[/field])", itemURI)
 	}
 
+	// Validate vault and item are not empty
+	if parts[0] == "" || parts[1] == "" {
+		return nil, fmt.Errorf("invalid item URI format: %s (vault and item cannot be empty)", itemURI)
+	}
 	// Determine if we're getting a specific field or default to password
 	field := "password"
 	if len(parts) >= 3 {

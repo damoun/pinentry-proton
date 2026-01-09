@@ -1,3 +1,4 @@
+//go:build linux
 // +build linux
 
 // Package platform provides platform-specific functionality.

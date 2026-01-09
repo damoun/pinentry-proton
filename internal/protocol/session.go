@@ -29,11 +29,11 @@ var (
 
 // Session manages the pinentry protocol session
 type Session struct {
-	reader        *bufio.Reader
-	writer        io.Writer
-	config        *config.Config
-	client        *protonpass.Client
-	timeout       time.Duration
+	reader  *bufio.Reader
+	writer  io.Writer
+	config  *config.Config
+	client  *protonpass.Client
+	timeout time.Duration
 
 	// Current request context
 	description string
@@ -148,13 +148,13 @@ func (s *Session) handleCommand(ctx context.Context, cmd, arg string) error {
 func (s *Session) handleGetPin(ctx context.Context) error {
 	// Find matching configuration entry
 	itemURI := s.config.FindItemForContext(s.description, s.prompt, s.title, s.keyInfo)
-	
+
 	if DebugMode {
-		log.Printf("[DEBUG] Context: desc=%q prompt=%q title=%q keyinfo=%q", 
+		log.Printf("[DEBUG] Context: desc=%q prompt=%q title=%q keyinfo=%q",
 			s.description, s.prompt, s.title, s.keyInfo)
 		log.Printf("[DEBUG] Matched item: %s", itemURI)
 	}
-	
+
 	if itemURI == "" {
 		return s.writeError("No ProtonPass item configured for this context")
 	}
@@ -168,7 +168,7 @@ func (s *Session) handleGetPin(ctx context.Context) error {
 	if err != nil {
 		return s.writeError(fmt.Sprintf("Failed to retrieve password: %v", err))
 	}
-	
+
 	// Track for cleanup
 	s.sensitiveData = append(s.sensitiveData, password)
 	defer protonpass.ZeroBytes(password)

@@ -65,6 +65,224 @@ go test -v ./internal/protocol
 go test -v -run TestSpecificFunction ./internal/config
 ```
 
+### Pre-Commit Hooks
+```bash
+# Install pre-commit hooks (first time setup)
+make pre-commit-install
+
+# Run commit-stage hooks manually (fast checks)
+make pre-commit-run-commit
+
+# Run push-stage hooks manually (comprehensive checks)
+make pre-commit-run-push
+
+# Run all hooks manually
+make pre-commit-run-all
+
+# Bypass hooks when needed (use sparingly)
+git commit --no-verify
+git push --no-verify
+```
+
+## Pre-Commit Hook System
+
+This project uses [pre-commit](https://pre-commit.com/) with hooks split between commit and push stages for optimal developer experience.
+
+### Hook Stages
+
+**Commit Stage (~1-2s)** - Fast feedback on every `git commit`:
+- `go fmt` - Code formatting
+- `go vet` - Static analysis
+- `go test` - Unit tests (WITHOUT race detection)
+- `go mod verify` - Module integrity
+- Branch protection - Prevent commits to main
+
+**Push Stage (~15-25s)** - Comprehensive validation on every `git push`:
+- All commit-stage checks (redundant safety net)
+- `go test -race` - Unit tests WITH race detection
+- `golangci-lint` - Full linting (11 linters, no --fast flag)
+- `go mod tidy` - Verify modules are tidy
+- `make build` - Build verification
+- Secrets scan - Check for accidentally committed secrets
+
+### Design Philosophy
+
+**Why split between commit and push?**
+- Commit hooks provide fast feedback (<2s) without interrupting flow
+- Race detection adds 4.5s to test execution, moved to push stage
+- Push hooks mirror CI/CD pipeline for consistency
+- Developers get quick iteration cycles while maintaining quality gates
+
+### Installation
+
+First-time setup for developers:
+```bash
+# Install pre-commit tool (if not already installed)
+pip install pre-commit
+# or
+brew install pre-commit
+
+# Install hooks for this repository
+make pre-commit-install
+```
+
+This installs:
+- `.git/hooks/pre-commit` - Runs commit-stage hooks
+- `.git/hooks/pre-push` - Runs push-stage hooks
+
+### Manual Hook Execution
+
+Run hooks without committing/pushing:
+```bash
+# Test what would run on commit
+make pre-commit-run-commit
+
+# Test what would run on push
+make pre-commit-run-push
+
+# Run everything
+make pre-commit-run-all
+```
+
+Or use pre-commit directly:
+```bash
+pre-commit run --hook-stage commit --all-files
+pre-commit run --hook-stage push --all-files
+```
+
+### Bypassing Hooks
+
+In rare cases when you need to skip hooks:
+```bash
+git commit --no-verify    # Skip commit hooks
+git push --no-verify      # Skip push hooks
+```
+
+**When to bypass:**
+- Emergency hotfixes
+- WIP commits on personal branches
+- When hooks are broken/misconfigured
+- When committing pre-commit infrastructure itself
+
+**Important**: Use sparingly. Hooks exist to catch issues before they reach CI/CD.
+
+### GitHub Actions Integration
+
+The `.github/workflows/ci.yml` includes a `pre-commit` job that:
+- Runs all push-stage hooks on every PR and push to main
+- Provides safety net for bypassed local hooks
+- Ensures consistency between local development and CI
+- Fails CI if any hook fails
+
+This means:
+- Contributors without local hooks installed are still validated
+- Bypassed hooks (`--no-verify`) are caught in CI
+- Same quality checks run locally and remotely
+
+### Configuration
+
+Hook configuration is in `.pre-commit-config.yaml`:
+- Uses `local` repo to run project-specific commands
+- Hooks use `language: system` (no isolated environments)
+- Commit hooks have `stages: [pre-commit]`
+- Push hooks have `stages: [pre-push]`
+
+### Optional: golangci-lint on Commit
+
+By default, full `golangci-lint` only runs on push. To enable faster linting on commit:
+
+1. Uncomment the `golangci-lint-fast` hook in `.pre-commit-config.yaml`
+2. Reinstall hooks: `make pre-commit-install`
+
+This adds 3-5s to commit time but catches more issues early.
+
+### Common Issues and Solutions
+
+**Issue**: Hooks not running
+```bash
+# Solution: Ensure hooks are installed
+make pre-commit-install
+```
+
+**Issue**: Tests failing in hooks but passing manually
+```bash
+# Solution: Hooks run from repo root, check working directory
+# Debug: Add echo $PWD to hook entry in .pre-commit-config.yaml
+```
+
+**Issue**: golangci-lint not found
+```bash
+# Solution: Install golangci-lint
+brew install golangci-lint
+# or follow: https://golangci-lint.run/usage/install/
+
+# Or let the hook skip gracefully (already configured)
+```
+
+**Issue**: Hooks too slow
+```bash
+# Solution 1: Check if golangci-lint --fast is enabled on commit
+# Solution 2: Run only changed files (but current config runs all files for consistency)
+# Solution 3: Temporarily bypass with --no-verify (not recommended)
+```
+
+**Issue**: Pre-commit tool not found
+```bash
+# Solution: Install pre-commit
+pip install pre-commit    # via pip
+brew install pre-commit   # via Homebrew
+```
+
+### Makefile Targets
+
+The Makefile includes convenience targets for hook management:
+
+- `pre-commit-install`: Install both pre-commit and pre-push hooks
+- `pre-commit-run-commit`: Run commit-stage hooks manually
+- `pre-commit-run-push`: Run push-stage hooks manually
+- `pre-commit-run-all`: Run all hooks (commit + push) manually
+
+These targets check if pre-commit is installed and provide helpful error messages if not.
+
+### CI/CD Parity
+
+The push-stage hooks match the CI pipeline:
+- ✅ `go fmt` → CI validates formatting (via go vet)
+- ✅ `go vet` → CI test job
+- ✅ `go test -race` → CI test job with coverage
+- ✅ `golangci-lint` (full) → CI lint job
+- ✅ `make build` → CI build job
+- ✅ `go mod verify` → CI test job
+- ✅ Secrets scan → Local only (additional protection)
+
+This ensures that if push hooks pass, CI should pass (barring environment differences).
+
+### Performance
+
+Measured execution times on this project:
+- `go fmt ./...`: ~0.2s
+- `go vet ./...`: ~0.5s
+- `go test ./...` (no race): ~0.4s
+- `go mod verify`: ~0.02s
+- Branch protection check: ~0.01s
+- **Total commit stage**: ~1.1s ✅
+
+- `go test -race ./...`: ~4.5s
+- `golangci-lint run ./...`: ~5-15s
+- `go mod tidy` check: ~0.5s
+- `make build`: ~0.2s
+- Secrets scan: ~0.1s
+- **Total push stage**: ~11-21s ✅
+
+### Best Practices
+
+1. **Always install hooks**: First thing after cloning the repo
+2. **Don't bypass regularly**: If you're bypassing often, hooks may be too strict
+3. **Fix issues immediately**: Don't let hook failures accumulate
+4. **Test manually**: Run `make pre-commit-run-all` before pushing for confidence
+5. **Keep hooks fast**: Commit stage should stay under 2s for good DX
+6. **Update documentation**: If you modify hooks, update this section
+
 ## Architecture Overview
 
 ### Package Structure

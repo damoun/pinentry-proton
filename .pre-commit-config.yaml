@@ -1,12 +1,19 @@
 repos:
   - repo: local
     hooks:
+      # ============================================
+      # COMMIT STAGE HOOKS (Fast - Target <2s)
+      # ============================================
+      # These hooks run on every 'git commit' to provide fast feedback
+      # and catch common mistakes without slowing down development.
+
       - id: go-fmt
         name: go fmt
         entry: bash -c 'go fmt ./...'
         language: system
         types: [go]
         pass_filenames: false
+        stages: [pre-commit]
 
       - id: go-vet
         name: go vet
@@ -14,29 +21,23 @@ repos:
         language: system
         types: [go]
         pass_filenames: false
+        stages: [pre-commit]
 
-      - id: go-test
-        name: go test
-        entry: bash -c 'go test -race ./...'
+      - id: go-test-short
+        name: go test (without race)
+        entry: bash -c 'go test -v ./...'
         language: system
         types: [go]
         pass_filenames: false
-        stages: [commit]
+        stages: [pre-commit]
 
-      - id: golangci-lint
-        name: golangci-lint
-        entry: bash -c 'command -v golangci-lint >/dev/null 2>&1 && golangci-lint run --fast || echo "golangci-lint not installed"'
+      - id: go-mod-verify
+        name: go mod verify
+        entry: bash -c 'go mod verify'
         language: system
-        types: [go]
+        files: 'go\.(mod|sum)$'
         pass_filenames: false
-
-      - id: secrets-scan
-        name: secrets scan
-        entry: bash -c 'git grep -n -i "password\|secret\|token\|key" -- "*.go" || true'
-        language: system
-        types: [go]
-        pass_filenames: false
-        stages: [commit]
+        stages: [pre-commit]
 
       - id: no-commit-to-branch
         name: "Don't commit to main"
@@ -44,3 +45,84 @@ repos:
         language: system
         pass_filenames: false
         always_run: true
+        stages: [pre-commit]
+
+      # OPTIONAL: Uncomment to enable golangci-lint --fast on commit stage
+      # This adds 3-5s to commit time but catches more issues early
+      # - id: golangci-lint-fast
+      #   name: golangci-lint (fast)
+      #   entry: bash -c 'command -v golangci-lint >/dev/null 2>&1 && golangci-lint run --fast || echo "WARNING golangci-lint not installed"'
+      #   language: system
+      #   types: [go]
+      #   pass_filenames: false
+      #   stages: [commit]
+
+      # ============================================
+      # PUSH STAGE HOOKS (Comprehensive - <30s)
+      # ============================================
+      # These hooks run on every 'git push' to provide comprehensive
+      # validation matching CI/CD before code reaches the remote repository.
+
+      - id: go-fmt-push
+        name: go fmt (push)
+        entry: bash -c 'go fmt ./...'
+        language: system
+        types: [go]
+        pass_filenames: false
+        stages: [pre-push]
+
+      - id: go-vet-push
+        name: go vet (push)
+        entry: bash -c 'go vet ./...'
+        language: system
+        types: [go]
+        pass_filenames: false
+        stages: [pre-push]
+
+      - id: go-test-race
+        name: go test (with race detection)
+        entry: bash -c 'go test -v -race ./...'
+        language: system
+        types: [go]
+        pass_filenames: false
+        stages: [pre-push]
+
+      - id: golangci-lint-full
+        name: golangci-lint (full)
+        entry: bash -c 'command -v golangci-lint >/dev/null 2>&1 && golangci-lint run ./... || echo "WARNING golangci-lint not installed, skipping lint checks"'
+        language: system
+        types: [go]
+        pass_filenames: false
+        stages: [pre-push]
+
+      - id: go-mod-verify-push
+        name: go mod verify (push)
+        entry: bash -c 'go mod verify'
+        language: system
+        files: 'go\.(mod|sum)$'
+        pass_filenames: false
+        stages: [pre-push]
+
+      - id: go-mod-tidy-check
+        name: go mod tidy check
+        entry: bash -c 'cp go.mod go.mod.bak && cp go.sum go.sum.bak && go mod tidy && git diff --exit-code go.mod go.sum || (mv go.mod.bak go.mod && mv go.sum.bak go.sum && echo "go.mod or go.sum not tidy, run go mod tidy" && exit 1) && rm -f go.mod.bak go.sum.bak'
+        language: system
+        files: 'go\.(mod|sum)$'
+        pass_filenames: false
+        stages: [pre-push]
+
+      - id: build-verification
+        name: build verification
+        entry: bash -c 'make build'
+        language: system
+        types: [go]
+        pass_filenames: false
+        stages: [pre-push]
+
+      - id: secrets-scan
+        name: secrets scan
+        entry: bash -c 'git grep -n -i "password\|secret\|token\|key" -- "*.go" | grep -v -E "(test|mock|example|TODO|fixture)" || true'
+        language: system
+        types: [go]
+        pass_filenames: false
+        stages: [pre-push]

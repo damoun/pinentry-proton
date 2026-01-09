@@ -79,17 +79,17 @@ func TestPercentEncode(t *testing.T) {
 func TestSessionReset(t *testing.T) {
 	cfg := &config.Config{}
 	session := NewSession(strings.NewReader(""), &bytes.Buffer{}, cfg)
-	
+
 	session.description = "test desc"
 	session.prompt = "test prompt"
 	session.title = "test title"
 	session.error = "test error"
 	session.keyInfo = "test keyinfo"
-	
+
 	session.reset()
-	
-	if session.description != "" || session.prompt != "" || 
-	   session.title != "" || session.error != "" || session.keyInfo != "" {
+
+	if session.description != "" || session.prompt != "" ||
+		session.title != "" || session.error != "" || session.keyInfo != "" {
 		t.Error("Session not properly reset")
 	}
 }
@@ -155,36 +155,36 @@ func TestProtocolCommands(t *testing.T) {
 			input := strings.NewReader(tt.input)
 			output := &bytes.Buffer{}
 			cfg := &config.Config{}
-			
+
 			session := NewSession(input, output, cfg)
-			
+
 			ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 			defer cancel()
-			
+
 			// Run in goroutine to avoid blocking on GETPIN
 			done := make(chan error, 1)
 			go func() {
 				done <- session.Run(ctx)
 			}()
-			
+
 			select {
 			case <-done:
 				result := output.String()
-				
+
 				// First line should be the initial OK
 				lines := strings.Split(strings.TrimSpace(result), "\n")
 				if len(lines) < 1 {
 					t.Fatal("No output received")
 				}
-				
+
 				if !strings.HasPrefix(lines[0], "OK") {
 					t.Errorf("First line should be OK, got: %s", lines[0])
 				}
-				
+
 				if tt.wantOK && len(lines) < 2 {
 					t.Error("Expected OK response, got no additional output")
 				}
-				
+
 				if tt.wantData {
 					hasData := false
 					for _, line := range lines {
@@ -197,7 +197,7 @@ func TestProtocolCommands(t *testing.T) {
 						t.Error("Expected data response (D), got none")
 					}
 				}
-				
+
 			case <-ctx.Done():
 				t.Fatal("Test timed out")
 			}
@@ -213,20 +213,20 @@ BYE
 `)
 	output := &bytes.Buffer{}
 	cfg := &config.Config{}
-	
+
 	session := NewSession(input, output, cfg)
-	
+
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 	defer cancel()
-	
+
 	err := session.Run(ctx)
 	if err != nil && err != context.DeadlineExceeded {
 		t.Fatalf("Unexpected error: %v", err)
 	}
-	
+
 	result := output.String()
 	okCount := strings.Count(result, "OK")
-	
+
 	// Should have: initial OK + 3 command OKs + BYE OK = 5
 	if okCount != 5 {
 		t.Errorf("Expected 5 OK responses, got %d. Output:\n%s", okCount, result)

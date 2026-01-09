@@ -375,6 +375,71 @@ make lint            # Run linters
 make coverage        # Generate test coverage report
 ```
 
+### Pre-Commit Hooks
+
+This project uses [pre-commit](https://pre-commit.com/) hooks to ensure code quality. Hooks are split between commit and push stages for optimal developer experience:
+
+#### Installation
+
+```bash
+# Install pre-commit tool (if not already installed)
+pip install pre-commit
+# or
+brew install pre-commit
+
+# Install hooks for this repository
+make pre-commit-install
+```
+
+#### Hook Stages
+
+**Commit Stage (~1-2s)** - Fast checks on every `git commit`:
+- `go fmt` - Code formatting
+- `go vet` - Static analysis
+- `go test` - Unit tests (without race detection)
+- `go mod verify` - Module integrity
+- Branch protection - Prevent commits to main
+
+**Push Stage (~15-25s)** - Comprehensive checks on every `git push`:
+- All commit-stage checks (redundant safety net)
+- `go test -race` - Unit tests with race detection
+- `golangci-lint` - Full linting (11 linters)
+- `go mod tidy` - Verify modules are tidy
+- `make build` - Build verification
+- Secrets scan - Check for accidentally committed secrets
+
+#### Manual Execution
+
+Run hooks manually without committing/pushing:
+
+```bash
+make pre-commit-run-commit    # Run commit-stage hooks on all files
+make pre-commit-run-push      # Run push-stage hooks on all files
+make pre-commit-run-all       # Run all hooks on all files
+```
+
+Or use pre-commit directly:
+
+```bash
+pre-commit run --hook-stage commit --all-files
+pre-commit run --hook-stage push --all-files
+```
+
+#### Bypassing Hooks
+
+In rare cases when you need to skip hooks:
+
+```bash
+git commit --no-verify    # Skip commit hooks
+git push --no-verify      # Skip push hooks
+```
+
+**Note:** Use sparingly. Hooks exist to catch issues before they reach CI/CD.
+
+#### CI/CD Parity
+
+The push-stage hooks mirror the CI/CD pipeline, ensuring that if push hooks pass, CI should pass (barring environment differences).
+
 ### Testing
 
 See [TESTING.md](TESTING.md) for comprehensive testing documentation.

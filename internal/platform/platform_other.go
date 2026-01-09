@@ -1,3 +1,4 @@
+//go:build !darwin && !linux
 // +build !darwin,!linux
 
 // Package platform provides platform-specific functionality.

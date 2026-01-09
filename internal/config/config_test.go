@@ -10,7 +10,7 @@ func TestLoad(t *testing.T) {
 	// Create a temporary config file
 	tmpDir := t.TempDir()
 	configPath := filepath.Join(tmpDir, "config.yaml")
-	
+
 	configContent := `
 default_item: "pass://Personal/Default/password"
 timeout: 30
@@ -20,29 +20,29 @@ mappings:
     match:
       description: "test"
 `
-	
+
 	err := os.WriteFile(configPath, []byte(configContent), 0600)
 	if err != nil {
 		t.Fatalf("Failed to write config file: %v", err)
 	}
-	
+
 	// Set environment variable to use our temp config
 	os.Setenv("PINENTRY_PROTON_CONFIG", configPath)
 	defer os.Unsetenv("PINENTRY_PROTON_CONFIG")
-	
+
 	config, err := Load()
 	if err != nil {
 		t.Fatalf("Load failed: %v", err)
 	}
-	
+
 	if config.DefaultItem != "pass://Personal/Default/password" {
 		t.Errorf("DefaultItem = %q, want %q", config.DefaultItem, "pass://Personal/Default/password")
 	}
-	
+
 	if config.Timeout != 30 {
 		t.Errorf("Timeout = %d, want 30", config.Timeout)
 	}
-	
+
 	if len(config.Mappings) != 1 {
 		t.Errorf("Mappings length = %d, want 1", len(config.Mappings))
 	}
@@ -119,8 +119,8 @@ func TestConfigValidation(t *testing.T) {
 			config: Config{
 				Mappings: []Mapping{
 					{
-						Name: "Test",
-						Item: "pass://Work/Test/password",
+						Name:  "Test",
+						Item:  "pass://Work/Test/password",
 						Match: MatchCriteria{},
 					},
 				},
@@ -128,7 +128,7 @@ func TestConfigValidation(t *testing.T) {
 			wantErr: true,
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			err := tt.config.Validate()
@@ -167,7 +167,7 @@ func TestFindItemForContext(t *testing.T) {
 			},
 		},
 	}
-	
+
 	tests := []struct {
 		name        string
 		description string
@@ -203,7 +203,7 @@ func TestFindItemForContext(t *testing.T) {
 			want:        "pass://Work/GitHub/password",
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := config.FindItemForContext(tt.description, tt.prompt, tt.title, tt.keyInfo)
@@ -222,13 +222,13 @@ func TestMatchesPattern(t *testing.T) {
 	}{
 		{"hello world", "hello", true},
 		{"hello world", "world", true},
-		{"hello world", "HELLO", true},  // case insensitive
+		{"hello world", "HELLO", true}, // case insensitive
 		{"hello world", "goodbye", false},
 		{"test", "*", true},
 		{"", "something", false},
-		{"something", "", true},  // empty pattern matches anything
+		{"something", "", true}, // empty pattern matches anything
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.value+"_"+tt.pattern, func(t *testing.T) {
 			got := matchesPattern(tt.value, tt.pattern)
@@ -294,7 +294,7 @@ func TestMappingMatches(t *testing.T) {
 			want:        false,
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := tt.mapping.Matches(tt.description, tt.prompt, tt.title, tt.keyInfo)

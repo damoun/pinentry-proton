@@ -140,7 +140,7 @@ func TestSignalHandling(t *testing.T) {
 	output := &bytes.Buffer{}
 
 	session := NewSession(input, output, cfg)
-	
+
 	// Add some sensitive data to track cleanup
 	sensitiveData := []byte("sensitive")
 	session.sensitiveData = append(session.sensitiveData, sensitiveData)

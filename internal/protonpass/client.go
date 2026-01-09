@@ -33,31 +33,31 @@ func (c *Client) RetrievePassword(ctx context.Context, itemURI string) ([]byte, 
 	if DebugMode {
 		log.Printf("[DEBUG] Retrieving password from: %s", itemURI)
 	}
-	
+
 	// Construct pass-cli command
 	itemPath := strings.TrimPrefix(itemURI, "pass://")
 	parts := strings.Split(itemPath, "/")
-	
+
 	if len(parts) < 2 {
 		return nil, fmt.Errorf("invalid item URI format: %s (expected: pass://vault/item[/field])", itemURI)
 	}
-	
+
 	// Determine if we're getting a specific field or default to password
 	field := "password"
 	if len(parts) >= 3 {
 		field = parts[2]
 	}
-	
+
 	// Build the item reference (vault/item)
 	itemRef := strings.Join(parts[:2], "/")
-	
+
 	if DebugMode {
 		log.Printf("[DEBUG] Item reference: %s, field: %s", itemRef, field)
 	}
-	
+
 	// Execute pass-cli to get the item
 	cmd := exec.CommandContext(ctx, c.cliPath, "item", "get", itemRef, "--field", field)
-	
+
 	// Capture stdout and stderr
 	output, err := cmd.CombinedOutput()
 	if err != nil {
@@ -72,11 +72,11 @@ func (c *Client) RetrievePassword(ctx context.Context, itemURI string) ([]byte, 
 
 	// Trim whitespace
 	password := []byte(strings.TrimSpace(string(output)))
-	
+
 	if len(password) == 0 {
 		return nil, fmt.Errorf("empty password returned from ProtonPass item: %s", itemURI)
 	}
-	
+
 	if DebugMode {
 		log.Printf("[DEBUG] Successfully retrieved password (%d bytes)", len(password))
 	}

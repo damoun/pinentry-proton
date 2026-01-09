@@ -137,3 +137,48 @@ checksums:
 		fi; \
 	done
 	@echo "Checksums generated"
+
+## pre-commit-install: Install pre-commit hooks (both commit and push)
+pre-commit-install:
+	@if command -v pre-commit >/dev/null 2>&1; then \
+		pre-commit install --hook-type pre-commit; \
+		pre-commit install --hook-type pre-push; \
+		echo "Pre-commit hooks installed successfully"; \
+		echo ""; \
+		echo "Hooks configured:"; \
+		echo "  - Commit stage: Fast checks (~1-2s)"; \
+		echo "  - Push stage: Comprehensive checks (~15-25s)"; \
+	else \
+		echo "ERROR: pre-commit not found. Install it with:"; \
+		echo "  pip install pre-commit"; \
+		echo "  or: brew install pre-commit"; \
+		exit 1; \
+	fi
+
+## pre-commit-run-commit: Run commit-stage hooks manually on all files
+pre-commit-run-commit:
+	@if command -v pre-commit >/dev/null 2>&1; then \
+		pre-commit run --hook-stage commit --all-files; \
+	else \
+		echo "ERROR: pre-commit not found. Install it first with: make pre-commit-install"; \
+		exit 1; \
+	fi
+
+## pre-commit-run-push: Run push-stage hooks manually on all files
+pre-commit-run-push:
+	@if command -v pre-commit >/dev/null 2>&1; then \
+		pre-commit run --hook-stage push --all-files; \
+	else \
+		echo "ERROR: pre-commit not found. Install it first with: make pre-commit-install"; \
+		exit 1; \
+	fi
+
+## pre-commit-run-all: Run all hooks (commit + push stages) manually on all files
+pre-commit-run-all:
+	@echo "Running commit-stage hooks..."
+	@$(MAKE) pre-commit-run-commit
+	@echo ""
+	@echo "Running push-stage hooks..."
+	@$(MAKE) pre-commit-run-push
+	@echo ""
+	@echo "All pre-commit hooks passed!"

@@ -1,0 +1,46 @@
+repos:
+  - repo: local
+    hooks:
+      - id: go-fmt
+        name: go fmt
+        entry: bash -c 'go fmt ./...'
+        language: system
+        types: [go]
+        pass_filenames: false
+
+      - id: go-vet
+        name: go vet
+        entry: bash -c 'go vet ./...'
+        language: system
+        types: [go]
+        pass_filenames: false
+
+      - id: go-test
+        name: go test
+        entry: bash -c 'go test -race ./...'
+        language: system
+        types: [go]
+        pass_filenames: false
+        stages: [commit]
+
+      - id: golangci-lint
+        name: golangci-lint
+        entry: bash -c 'command -v golangci-lint >/dev/null 2>&1 && golangci-lint run --fast || echo "golangci-lint not installed"'
+        language: system
+        types: [go]
+        pass_filenames: false
+
+      - id: secrets-scan
+        name: secrets scan
+        entry: bash -c 'git grep -n -i "password\|secret\|token\|key" -- "*.go" || true'
+        language: system
+        types: [go]
+        pass_filenames: false
+        stages: [commit]
+
+      - id: no-commit-to-branch
+        name: "Don't commit to main"
+        entry: bash -c 'if [ "$(git rev-parse --abbrev-ref HEAD)" == "main" ]; then echo "Cannot commit directly to main"; exit 1; fi'
+        language: system
+        pass_filenames: false
+        always_run: true

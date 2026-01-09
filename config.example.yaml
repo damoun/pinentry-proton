@@ -1,0 +1,61 @@
+# Pinentry-Proton Configuration Example
+# Place this file at ~/.config/pinentry-proton/config.yaml
+# or set PINENTRY_PROTON_CONFIG environment variable
+
+# Default item to use if no mapping matches
+# This is optional - if not set and no mapping matches, an error is returned
+default_item: "pass://Personal/Default SSH Key/password"
+
+# Timeout for password retrieval in seconds (default: 60)
+timeout: 60
+
+# Mappings define which ProtonPass item to use for different contexts
+# Each mapping has a name (for documentation), an item URI, and match criteria
+mappings:
+  # Example: SSH key for GitHub
+  - name: "GitHub SSH Key"
+    item: "pass://Work/GitHub SSH Key/password"
+    match:
+      description: "github"  # Match if description contains "github"
+      
+  # Example: GPG key
+  - name: "Personal GPG Key"
+    item: "pass://Personal/GPG Key/password"
+    match:
+      keyinfo: "ABCD1234"  # Match specific key ID
+      
+  # Example: SSH key for work servers
+  - name: "Work SSH Keys"
+    item: "pass://Work/Production SSH Key/password"
+    match:
+      description: "prod"  # Match if description contains "prod"
+      
+  # Example: Another SSH key
+  - name: "Home Server SSH"
+    item: "pass://Personal/Home Server/password"
+    match:
+      description: "homeserver"
+      
+  # Example: Match by title
+  - name: "Backup SSH Key"
+    item: "pass://Personal/Backup Key/password"
+    match:
+      title: "ssh"  # Match if title contains "ssh"
+
+# Notes on matching:
+# - All specified criteria must match (AND logic)
+# - Matching is case-insensitive substring matching
+# - Use "*" to match anything
+# - First matching mapping wins
+# - If no mapping matches, default_item is used
+# - If no default_item and no match, an error is returned
+
+# ProtonPass URI format:
+# pass://SHARE_ID/ITEM_ID/FIELD
+# or
+# pass://VAULT_NAME/ITEM_TITLE/FIELD
+#
+# Examples:
+# - pass://abc123def/xyz789/password
+# - pass://Work/GitHub Account/password
+# - pass://Personal/SSH Keys/passphrase

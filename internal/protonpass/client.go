@@ -1,0 +1,92 @@
+// Package protonpass handles integration with ProtonPass CLI (pass-cli).
+package protonpass
+
+import (
+	"context"
+	"fmt"
+	"log"
+	"os"
+	"os/exec"
+	"strings"
+)
+
+var (
+	// DebugMode controls whether debug logging is enabled
+	DebugMode = os.Getenv("PINENTRY_PROTON_DEBUG") == "1"
+)
+
+// Client handles ProtonPass CLI interactions
+type Client struct {
+	cliPath string
+}
+
+// NewClient creates a new ProtonPass client
+func NewClient() *Client {
+	return &Client{
+		cliPath: "pass-cli",
+	}
+}
+
+// RetrievePassword retrieves a password from ProtonPass using pass-cli
+func (c *Client) RetrievePassword(ctx context.Context, itemURI string) ([]byte, error) {
+	// Parse the ProtonPass URI: pass://VAULT/ITEM/FIELD
+	if DebugMode {
+		log.Printf("[DEBUG] Retrieving password from: %s", itemURI)
+	}
+	
+	// Construct pass-cli command
+	itemPath := strings.TrimPrefix(itemURI, "pass://")
+	parts := strings.Split(itemPath, "/")
+	
+	if len(parts) < 2 {
+		return nil, fmt.Errorf("invalid item URI format: %s (expected: pass://vault/item[/field])", itemURI)
+	}
+	
+	// Determine if we're getting a specific field or default to password
+	field := "password"
+	if len(parts) >= 3 {
+		field = parts[2]
+	}
+	
+	// Build the item reference (vault/item)
+	itemRef := strings.Join(parts[:2], "/")
+	
+	if DebugMode {
+		log.Printf("[DEBUG] Item reference: %s, field: %s", itemRef, field)
+	}
+	
+	// Execute pass-cli to get the item
+	cmd := exec.CommandContext(ctx, c.cliPath, "item", "get", itemRef, "--field", field)
+	
+	// Capture stdout and stderr
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		if DebugMode {
+			log.Printf("[DEBUG] pass-cli error: %v, output: %s", err, string(output))
+		}
+		if exitErr, ok := err.(*exec.ExitError); ok {
+			return nil, fmt.Errorf("pass-cli error (exit %d): %s", exitErr.ExitCode(), string(output))
+		}
+		return nil, fmt.Errorf("pass-cli execution failed: %w", err)
+	}
+
+	// Trim whitespace
+	password := []byte(strings.TrimSpace(string(output)))
+	
+	if len(password) == 0 {
+		return nil, fmt.Errorf("empty password returned from ProtonPass item: %s", itemURI)
+	}
+	
+	if DebugMode {
+		log.Printf("[DEBUG] Successfully retrieved password (%d bytes)", len(password))
+	}
+
+	return password, nil
+}
+
+// ZeroBytes securely zeros a byte slice
+func ZeroBytes(b []byte) {
+	for i := range b {
+		b[i] = 0
+	}
+}

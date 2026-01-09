@@ -484,10 +484,10 @@ func TestZeroBytes_Idempotent(t *testing.T) {
 
 // Helper functions
 
-func createMockCLI(t *testing.T, vault, item, field, password string) string {
-	t.Helper()
+func createMockCLI(tb testing.TB, vault, item, field, password string) string {
+	tb.Helper()
 
-	tmpDir := t.TempDir()
+	tmpDir := tb.TempDir()
 	cliPath := filepath.Join(tmpDir, "mock-pass-cli")
 
 	// Escape special characters in the password for shell script
@@ -522,16 +522,16 @@ exit 1
 `, vault, item, field, escapedPassword)
 
 	if err := os.WriteFile(cliPath, []byte(script), 0755); err != nil {
-		t.Fatalf("Failed to create mock CLI: %v", err)
+		tb.Fatalf("Failed to create mock CLI: %v", err)
 	}
 
 	return cliPath
 }
 
-func createMockCLIWithError(t *testing.T, errorMsg string) string {
-	t.Helper()
+func createMockCLIWithError(tb testing.TB, errorMsg string) string {
+	tb.Helper()
 
-	tmpDir := t.TempDir()
+	tmpDir := tb.TempDir()
 	cliPath := filepath.Join(tmpDir, "mock-pass-cli-error")
 
 	script := fmt.Sprintf(`#!/bin/bash
@@ -540,16 +540,16 @@ exit 1
 `, errorMsg)
 
 	if err := os.WriteFile(cliPath, []byte(script), 0755); err != nil {
-		t.Fatalf("Failed to create error mock CLI: %v", err)
+		tb.Fatalf("Failed to create error mock CLI: %v", err)
 	}
 
 	return cliPath
 }
 
-func createMockCLIWithDelay(t *testing.T, delay time.Duration) string {
-	t.Helper()
+func createMockCLIWithDelay(tb testing.TB, delay time.Duration) string {
+	tb.Helper()
 
-	tmpDir := t.TempDir()
+	tmpDir := tb.TempDir()
 	cliPath := filepath.Join(tmpDir, "mock-pass-cli-delay")
 
 	script := fmt.Sprintf(`#!/bin/bash
@@ -559,7 +559,7 @@ exit 0
 `, int(delay.Seconds())+1)
 
 	if err := os.WriteFile(cliPath, []byte(script), 0755); err != nil {
-		t.Fatalf("Failed to create delay mock CLI: %v", err)
+		tb.Fatalf("Failed to create delay mock CLI: %v", err)
 	}
 
 	return cliPath

@@ -3,7 +3,6 @@ package testutil
 
 import (
 	"fmt"
-	"math/rand"
 	"os"
 	"path/filepath"
 	"strings"
@@ -89,7 +88,7 @@ func (m *MockPassCLI) GenerateCLI(t *testing.T, path string) {
 	t.Helper()
 
 	// Create parent directory if needed
-	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil { //nolint:gosec // G301: Standard directory permissions for test fixtures
 		t.Fatalf("Failed to create directory for mock CLI: %v", err)
 	}
 
@@ -172,7 +171,7 @@ echo "Error: Unknown command" >&2
 exit 1
 `, dataFile, path, path, dataFile)
 
-	if err := os.WriteFile(path, []byte(script), 0755); err != nil {
+	if err := os.WriteFile(path, []byte(script), 0755); err != nil { //nolint:gosec // G306: Executable script needs 0755
 		t.Fatalf("Failed to write mock CLI script: %v", err)
 	}
 
@@ -180,7 +179,7 @@ exit 1
 	if m.latency > 0 {
 		latencyFile := path + ".latency"
 		latencyStr := fmt.Sprintf("%f", m.latency.Seconds())
-		if err := os.WriteFile(latencyFile, []byte(latencyStr), 0644); err != nil {
+		if err := os.WriteFile(latencyFile, []byte(latencyStr), 0644); err != nil { //nolint:gosec // G306: Data file, 0644 is appropriate
 			t.Fatalf("Failed to write latency file: %v", err)
 		}
 	}
@@ -189,7 +188,7 @@ exit 1
 	if m.failureRate > 0 {
 		failureFile := path + ".failure"
 		failureStr := fmt.Sprintf("%f", m.failureRate)
-		if err := os.WriteFile(failureFile, []byte(failureStr), 0644); err != nil {
+		if err := os.WriteFile(failureFile, []byte(failureStr), 0644); err != nil { //nolint:gosec // G306: Data file, 0644 is appropriate
 			t.Fatalf("Failed to write failure file: %v", err)
 		}
 	}
@@ -210,7 +209,7 @@ func (m *MockPassCLI) writeDataFile(t *testing.T, path string) {
 	}
 	m.mu.Unlock()
 
-	if err := os.WriteFile(path, []byte(sb.String()), 0644); err != nil {
+	if err := os.WriteFile(path, []byte(sb.String()), 0644); err != nil { //nolint:gosec // G306: Data file, 0644 is appropriate
 		t.Fatalf("Failed to write data file: %v", err)
 	}
 }
@@ -234,44 +233,6 @@ func (m *MockPassCLI) Reset() {
 	m.callLog = []MockCall{}
 	m.latency = 0
 	m.failureRate = 0.0
-}
-
-// logCall records a call to the mock
-func (m *MockPassCLI) logCall(command string, args []string, result string, err error) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	m.callLog = append(m.callLog, MockCall{
-		Timestamp: time.Now(),
-		Command:   command,
-		Args:      args,
-		Result:    result,
-		Error:     err,
-	})
-}
-
-// simulateLatency simulates network latency if configured
-func (m *MockPassCLI) simulateLatency() {
-	m.mu.Lock()
-	latency := m.latency
-	m.mu.Unlock()
-
-	if latency > 0 {
-		time.Sleep(latency)
-	}
-}
-
-// simulateFailure returns true if a failure should be simulated
-func (m *MockPassCLI) simulateFailure() bool {
-	m.mu.Lock()
-	rate := m.failureRate
-	m.mu.Unlock()
-
-	if rate <= 0 {
-		return false
-	}
-
-	return rand.Float64() < rate
 }
 
 // CreateMockPassCLI is a helper function that creates a mock CLI and returns its path
@@ -300,7 +261,7 @@ echo "%s" >&2
 exit 1
 `, errorMessage)
 
-	if err := os.WriteFile(cliPath, []byte(script), 0755); err != nil {
+	if err := os.WriteFile(cliPath, []byte(script), 0755); err != nil { //nolint:gosec // G306: Executable script needs 0755
 		t.Fatalf("Failed to create error mock CLI: %v", err)
 	}
 
@@ -319,7 +280,7 @@ sleep %d
 echo "timeout"
 `, int(timeout.Seconds())+1)
 
-	if err := os.WriteFile(cliPath, []byte(script), 0755); err != nil {
+	if err := os.WriteFile(cliPath, []byte(script), 0755); err != nil { //nolint:gosec // G306: Executable script needs 0755
 		t.Fatalf("Failed to create timeout mock CLI: %v", err)
 	}
 

@@ -5,7 +5,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -31,7 +30,7 @@ func TestE2E_FullProtocolFlow(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, binary)
+	cmd := exec.CommandContext(ctx, binary) //nolint:gosec // G204: Running test binary, path is controlled
 	cmd.Env = append(os.Environ(),
 		fmt.Sprintf("PINENTRY_PROTON_CONFIG=%s", configPath),
 		fmt.Sprintf("PATH=%s:%s", binDir, os.Getenv("PATH")),
@@ -47,7 +46,7 @@ func TestE2E_FullProtocolFlow(t *testing.T) {
 	testutil.AssertNoError(t, err, "Failed to start pinentry")
 	defer func() {
 		if cmd.Process != nil {
-			cmd.Process.Kill()
+			_ = cmd.Process.Kill() // Ignore error, best effort cleanup
 		}
 	}()
 
@@ -73,7 +72,7 @@ func TestE2E_FullProtocolFlow(t *testing.T) {
 	}
 
 	for _, tc := range commands {
-		fmt.Fprintf(stdin, "%s\n", tc.cmd)
+		_, _ = fmt.Fprintf(stdin, "%s\n", tc.cmd)
 		if !scanner.Scan() {
 			t.Fatalf("Failed to read response for %s", tc.cmd)
 		}
@@ -82,7 +81,7 @@ func TestE2E_FullProtocolFlow(t *testing.T) {
 	}
 
 	// Send GETPIN
-	fmt.Fprintf(stdin, "GETPIN\n")
+	_, _ = fmt.Fprintf(stdin, "GETPIN\n")
 
 	// Read data response
 	if !scanner.Scan() {
@@ -103,14 +102,14 @@ func TestE2E_FullProtocolFlow(t *testing.T) {
 	testutil.AssertProtocolOK(t, scanner.Text())
 
 	// Send BYE
-	fmt.Fprintf(stdin, "BYE\n")
+	_, _ = fmt.Fprintf(stdin, "BYE\n")
 	if !scanner.Scan() {
 		t.Fatal("Failed to read BYE response")
 	}
 	testutil.AssertProtocolOK(t, scanner.Text())
 
-	stdin.Close()
-	cmd.Wait()
+	_ = stdin.Close() // Ignore error, best effort cleanup
+	_ = cmd.Wait()    // Ignore error, best effort cleanup
 }
 
 // TestE2E_GPGWorkflow tests GPG-specific context and matching
@@ -142,15 +141,17 @@ func TestE2E_GPGWorkflow(t *testing.T) {
 
 	// Copy mock to bin directory and fix data file paths
 	binDir := filepath.Join(tmpDir, "bin")
-	os.MkdirAll(binDir, 0755)
+	if err := os.MkdirAll(binDir, 0755); err != nil { //nolint:gosec // G301: Standard directory permissions for test fixtures
+		t.Fatalf("Failed to create bin directory: %v", err)
+	}
 
 	passCLIPath := filepath.Join(binDir, "pass-cli")
 	newDataPath := passCLIPath + ".data"
 
 	// Read mock script and data files
-	gpgScript, _ := os.ReadFile(gpgMock)
-	gpgData, _ := os.ReadFile(gpgMock + ".data")
-	defaultData, _ := os.ReadFile(defaultMock + ".data")
+	gpgScript, _ := os.ReadFile(gpgMock)                 //nolint:gosec // G304: Test fixture, path is controlled
+	gpgData, _ := os.ReadFile(gpgMock + ".data")         //nolint:gosec // G304: Test fixture, path is controlled
+	defaultData, _ := os.ReadFile(defaultMock + ".data") //nolint:gosec // G304: Test fixture, path is controlled
 
 	// Replace all occurrences of the old data file path with the new absolute path
 	scriptContent := string(gpgScript)
@@ -159,16 +160,20 @@ func TestE2E_GPGWorkflow(t *testing.T) {
 	scriptContent = strings.ReplaceAll(scriptContent, gpgMock+".failure", passCLIPath+".failure")
 
 	// Write the modified script
-	os.WriteFile(passCLIPath, []byte(scriptContent), 0755)
+	if err := os.WriteFile(passCLIPath, []byte(scriptContent), 0755); err != nil { //nolint:gosec // G306: Executable script needs 0755
+		t.Fatalf("Failed to write pass-cli script: %v", err)
+	}
 
 	// Merge and write data files
 	mergedData := string(gpgData) + "\n" + string(defaultData)
-	os.WriteFile(newDataPath, []byte(mergedData), 0644)
+	if err := os.WriteFile(newDataPath, []byte(mergedData), 0644); err != nil { //nolint:gosec // G306: Data file, 0644 is appropriate
+		t.Fatalf("Failed to write data file: %v", err)
+	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, binary)
+	cmd := exec.CommandContext(ctx, binary) //nolint:gosec // G204: Running test binary, path is controlled
 	cmd.Env = append(os.Environ(),
 		fmt.Sprintf("PINENTRY_PROTON_CONFIG=%s", configPath),
 		fmt.Sprintf("PATH=%s:%s", binDir, os.Getenv("PATH")),
@@ -177,10 +182,12 @@ func TestE2E_GPGWorkflow(t *testing.T) {
 
 	stdin, _ := cmd.StdinPipe()
 	stdout, _ := cmd.StdoutPipe()
-	cmd.Start()
+	if err := cmd.Start(); err != nil {
+		t.Fatalf("Failed to start command: %v", err)
+	}
 	defer func() {
 		if cmd.Process != nil {
-			cmd.Process.Kill()
+			_ = cmd.Process.Kill() // Ignore error, best effort cleanup
 		}
 	}()
 
@@ -188,13 +195,13 @@ func TestE2E_GPGWorkflow(t *testing.T) {
 	scanner.Scan() // greeting
 
 	// Send GPG-like context
-	fmt.Fprintf(stdin, "SETDESC gpg: signing key ABCD1234\n")
+	_, _ = fmt.Fprintf(stdin, "SETDESC gpg: signing key ABCD1234\n")
 	scanner.Scan()
-	fmt.Fprintf(stdin, "SETTITLE Passphrase\n")
+	_, _ = fmt.Fprintf(stdin, "SETTITLE Passphrase\n")
 	scanner.Scan()
 
 	// GETPIN should match the GPG mapping
-	fmt.Fprintf(stdin, "GETPIN\n")
+	_, _ = fmt.Fprintf(stdin, "GETPIN\n")
 	scanner.Scan() // data
 	dataLine := scanner.Text()
 	scanner.Scan() // OK
@@ -203,10 +210,10 @@ func TestE2E_GPGWorkflow(t *testing.T) {
 
 	testutil.AssertEqual(t, testPassword, decodedPassword, "Should retrieve GPG key password")
 
-	fmt.Fprintf(stdin, "BYE\n")
+	_, _ = fmt.Fprintf(stdin, "BYE\n")
 	scanner.Scan()
-	stdin.Close()
-	cmd.Wait()
+	_ = stdin.Close() // Ignore error, best effort cleanup
+	_ = cmd.Wait()    // Ignore error, best effort cleanup
 }
 
 // TestE2E_SSHWorkflow tests SSH-specific context and matching
@@ -236,15 +243,17 @@ func TestE2E_SSHWorkflow(t *testing.T) {
 
 	// Copy mock to bin directory and fix data file paths
 	binDir := filepath.Join(tmpDir, "bin")
-	os.MkdirAll(binDir, 0755)
+	if err := os.MkdirAll(binDir, 0755); err != nil { //nolint:gosec // G301: Standard directory permissions for test fixtures
+		t.Fatalf("Failed to create bin directory: %v", err)
+	}
 
 	passCLIPath := filepath.Join(binDir, "pass-cli")
 	newDataPath := passCLIPath + ".data"
 
 	// Read mock script and data files
-	sshScript, _ := os.ReadFile(sshMock)
-	sshData, _ := os.ReadFile(sshMock + ".data")
-	defaultData, _ := os.ReadFile(defaultMock + ".data")
+	sshScript, _ := os.ReadFile(sshMock)                 //nolint:gosec // G304: Test fixture, path is controlled
+	sshData, _ := os.ReadFile(sshMock + ".data")         //nolint:gosec // G304: Test fixture, path is controlled
+	defaultData, _ := os.ReadFile(defaultMock + ".data") //nolint:gosec // G304: Test fixture, path is controlled
 
 	// Replace all occurrences of the old data file path with the new absolute path
 	scriptContent := string(sshScript)
@@ -253,16 +262,20 @@ func TestE2E_SSHWorkflow(t *testing.T) {
 	scriptContent = strings.ReplaceAll(scriptContent, sshMock+".failure", passCLIPath+".failure")
 
 	// Write modified script
-	os.WriteFile(passCLIPath, []byte(scriptContent), 0755)
+	if err := os.WriteFile(passCLIPath, []byte(scriptContent), 0755); err != nil { //nolint:gosec // G306: Executable script needs 0755
+		t.Fatalf("Failed to write pass-cli script: %v", err)
+	}
 
 	// Merge and write data files
 	mergedData := string(sshData) + "\n" + string(defaultData)
-	os.WriteFile(newDataPath, []byte(mergedData), 0644)
+	if err := os.WriteFile(newDataPath, []byte(mergedData), 0644); err != nil { //nolint:gosec // G306: Data file, 0644 is appropriate
+		t.Fatalf("Failed to write data file: %v", err)
+	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, binary)
+	cmd := exec.CommandContext(ctx, binary) //nolint:gosec // G204: Running test binary, path is controlled
 	cmd.Env = append(os.Environ(),
 		fmt.Sprintf("PINENTRY_PROTON_CONFIG=%s", configPath),
 		fmt.Sprintf("PATH=%s:%s", binDir, os.Getenv("PATH")),
@@ -271,10 +284,12 @@ func TestE2E_SSHWorkflow(t *testing.T) {
 
 	stdin, _ := cmd.StdinPipe()
 	stdout, _ := cmd.StdoutPipe()
-	cmd.Start()
+	if err := cmd.Start(); err != nil {
+		t.Fatalf("Failed to start command: %v", err)
+	}
 	defer func() {
 		if cmd.Process != nil {
-			cmd.Process.Kill()
+			_ = cmd.Process.Kill() // Ignore error, best effort cleanup
 		}
 	}()
 
@@ -282,12 +297,12 @@ func TestE2E_SSHWorkflow(t *testing.T) {
 	scanner.Scan() // greeting
 
 	// Send SSH-like context
-	fmt.Fprintf(stdin, "SETDESC Enter passphrase for ~/.ssh/id_ed25519 (github.com)\n")
+	_, _ = fmt.Fprintf(stdin, "SETDESC Enter passphrase for ~/.ssh/id_ed25519 (github.com)\n")
 	scanner.Scan()
-	fmt.Fprintf(stdin, "SETPROMPT Passphrase:\n")
+	_, _ = fmt.Fprintf(stdin, "SETPROMPT Passphrase:\n")
 	scanner.Scan()
 
-	fmt.Fprintf(stdin, "GETPIN\n")
+	_, _ = fmt.Fprintf(stdin, "GETPIN\n")
 	scanner.Scan() // data
 	dataLine := scanner.Text()
 	scanner.Scan() // OK
@@ -295,10 +310,10 @@ func TestE2E_SSHWorkflow(t *testing.T) {
 	decodedPassword := percentDecode(strings.TrimPrefix(dataLine, "D "))
 	testutil.AssertEqual(t, testPassword, decodedPassword, "Should retrieve SSH key password")
 
-	fmt.Fprintf(stdin, "BYE\n")
+	_, _ = fmt.Fprintf(stdin, "BYE\n")
 	scanner.Scan()
-	stdin.Close()
-	cmd.Wait()
+	_ = stdin.Close() // Ignore error, best effort cleanup
+	_ = cmd.Wait()    // Ignore error, best effort cleanup
 }
 
 // TestE2E_ContextMatching tests configuration matching logic
@@ -368,16 +383,18 @@ func TestE2E_ContextMatching(t *testing.T) {
 
 			// Copy mock to bin directory and fix data file paths
 			binDir := filepath.Join(tmpDir, "bin")
-			os.MkdirAll(binDir, 0755)
+			if err := os.MkdirAll(binDir, 0755); err != nil { //nolint:gosec // G301: Standard directory permissions for test fixtures
+				t.Fatalf("Failed to create bin directory: %v", err)
+			}
 
 			passCLIPath := filepath.Join(binDir, "pass-cli")
 			newDataPath := passCLIPath + ".data"
 
 			// Read one mock script and all data files
-			mockScript, _ := os.ReadFile(mockGPGKey1)
-			gpgKey1Data, _ := os.ReadFile(mockGPGKey1 + ".data")
-			gpgKey2Data, _ := os.ReadFile(mockGPGKey2 + ".data")
-			defaultData, _ := os.ReadFile(mockDefault + ".data")
+			mockScript, _ := os.ReadFile(mockGPGKey1)            //nolint:gosec // G304: Test fixture, path is controlled
+			gpgKey1Data, _ := os.ReadFile(mockGPGKey1 + ".data") //nolint:gosec // G304: Test fixture, path is controlled
+			gpgKey2Data, _ := os.ReadFile(mockGPGKey2 + ".data") //nolint:gosec // G304: Test fixture, path is controlled
+			defaultData, _ := os.ReadFile(mockDefault + ".data") //nolint:gosec // G304: Test fixture, path is controlled
 
 			// Replace all occurrences of the old data file path with the new absolute path
 			scriptContent := string(mockScript)
@@ -386,16 +403,20 @@ func TestE2E_ContextMatching(t *testing.T) {
 			scriptContent = strings.ReplaceAll(scriptContent, mockGPGKey1+".failure", passCLIPath+".failure")
 
 			// Write modified script
-			os.WriteFile(passCLIPath, []byte(scriptContent), 0755)
+			if err := os.WriteFile(passCLIPath, []byte(scriptContent), 0755); err != nil { //nolint:gosec // G306: Executable script needs 0755
+				t.Fatalf("Failed to write pass-cli script: %v", err)
+			}
 
 			// Merge all data files
 			mergedData := string(gpgKey1Data) + "\n" + string(gpgKey2Data) + "\n" + string(defaultData)
-			os.WriteFile(newDataPath, []byte(mergedData), 0644)
+			if err := os.WriteFile(newDataPath, []byte(mergedData), 0644); err != nil { //nolint:gosec // G306: Data file, 0644 is appropriate
+				t.Fatalf("Failed to write data file: %v", err)
+			}
 
 			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 			defer cancel()
 
-			cmd := exec.CommandContext(ctx, binary)
+			cmd := exec.CommandContext(ctx, binary) //nolint:gosec // G204: Running test binary, path is controlled //nolint:gosec // G204: Running test binary, path is controlled
 			cmd.Env = append(os.Environ(),
 				fmt.Sprintf("PINENTRY_PROTON_CONFIG=%s", configPath),
 				fmt.Sprintf("PATH=%s:%s", binDir, os.Getenv("PATH")),
@@ -404,20 +425,22 @@ func TestE2E_ContextMatching(t *testing.T) {
 
 			stdin, _ := cmd.StdinPipe()
 			stdout, _ := cmd.StdoutPipe()
-			cmd.Start()
+			if err := cmd.Start(); err != nil {
+				t.Fatalf("Failed to start command: %v", err)
+			}
 			defer func() {
 				if cmd.Process != nil {
-					cmd.Process.Kill()
+					_ = cmd.Process.Kill() // Ignore error, best effort cleanup
 				}
 			}()
 
 			scanner := bufio.NewScanner(stdout)
 			scanner.Scan() // greeting
 
-			fmt.Fprintf(stdin, "SETDESC %s\n", tt.description)
+			_, _ = fmt.Fprintf(stdin, "SETDESC %s\n", tt.description)
 			scanner.Scan()
 
-			fmt.Fprintf(stdin, "GETPIN\n")
+			_, _ = fmt.Fprintf(stdin, "GETPIN\n")
 			scanner.Scan() // data
 			dataLine := scanner.Text()
 			scanner.Scan() // OK
@@ -425,10 +448,10 @@ func TestE2E_ContextMatching(t *testing.T) {
 			decodedPassword := percentDecode(strings.TrimPrefix(dataLine, "D "))
 			testutil.AssertEqual(t, testPassword, decodedPassword, "Password should match")
 
-			fmt.Fprintf(stdin, "BYE\n")
+			_, _ = fmt.Fprintf(stdin, "BYE\n")
 			scanner.Scan()
-			stdin.Close()
-			cmd.Wait()
+			_ = stdin.Close() // Ignore error, best effort cleanup
+			_ = cmd.Wait()    // Ignore error, best effort cleanup
 		})
 	}
 }
@@ -464,7 +487,7 @@ func TestE2E_ErrorRecovery(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 			defer cancel()
 
-			cmd := exec.CommandContext(ctx, binary)
+			cmd := exec.CommandContext(ctx, binary) //nolint:gosec // G204: Running test binary, path is controlled //nolint:gosec // G204: Running test binary, path is controlled
 			cmd.Env = append(os.Environ(),
 				fmt.Sprintf("PINENTRY_PROTON_CONFIG=%s", configPath),
 				fmt.Sprintf("PATH=%s", newPath),
@@ -472,27 +495,29 @@ func TestE2E_ErrorRecovery(t *testing.T) {
 
 			stdin, _ := cmd.StdinPipe()
 			stdout, _ := cmd.StdoutPipe()
-			cmd.Start()
+			if err := cmd.Start(); err != nil {
+				t.Fatalf("Failed to start command: %v", err)
+			}
 			defer func() {
 				if cmd.Process != nil {
-					cmd.Process.Kill()
+					_ = cmd.Process.Kill() // Ignore error, best effort cleanup
 				}
 			}()
 
 			scanner := bufio.NewScanner(stdout)
 			scanner.Scan() // greeting
 
-			fmt.Fprintf(stdin, "GETPIN\n")
+			_, _ = fmt.Fprintf(stdin, "GETPIN\n")
 			scanner.Scan()
 			errorResponse := scanner.Text()
 
 			// Should get an error response
 			testutil.AssertProtocolError(t, errorResponse)
 
-			fmt.Fprintf(stdin, "BYE\n")
+			_, _ = fmt.Fprintf(stdin, "BYE\n")
 			scanner.Scan()
-			stdin.Close()
-			cmd.Wait()
+			_ = stdin.Close() // Ignore error, best effort cleanup
+			_ = cmd.Wait()    // Ignore error, best effort cleanup
 		})
 	}
 }
@@ -506,7 +531,7 @@ func TestE2E_MultipleRequestsSameSession(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, binary)
+	cmd := exec.CommandContext(ctx, binary) //nolint:gosec // G204: Running test binary, path is controlled
 	cmd.Env = append(os.Environ(),
 		fmt.Sprintf("PINENTRY_PROTON_CONFIG=%s", configPath),
 		fmt.Sprintf("PATH=%s:%s", binDir, os.Getenv("PATH")),
@@ -514,10 +539,12 @@ func TestE2E_MultipleRequestsSameSession(t *testing.T) {
 
 	stdin, _ := cmd.StdinPipe()
 	stdout, _ := cmd.StdoutPipe()
-	cmd.Start()
+	if err := cmd.Start(); err != nil {
+		t.Fatalf("Failed to start command: %v", err)
+	}
 	defer func() {
 		if cmd.Process != nil {
-			cmd.Process.Kill()
+			_ = cmd.Process.Kill() // Ignore error, best effort cleanup
 		}
 	}()
 
@@ -526,7 +553,7 @@ func TestE2E_MultipleRequestsSameSession(t *testing.T) {
 
 	// Request password 3 times
 	for i := 0; i < 3; i++ {
-		fmt.Fprintf(stdin, "GETPIN\n")
+		_, _ = fmt.Fprintf(stdin, "GETPIN\n")
 		scanner.Scan() // data
 		dataLine := scanner.Text()
 		testutil.AssertProtocolData(t, dataLine)
@@ -538,10 +565,10 @@ func TestE2E_MultipleRequestsSameSession(t *testing.T) {
 		testutil.AssertProtocolOK(t, scanner.Text())
 	}
 
-	fmt.Fprintf(stdin, "BYE\n")
+	_, _ = fmt.Fprintf(stdin, "BYE\n")
 	scanner.Scan()
-	stdin.Close()
-	cmd.Wait()
+	_ = stdin.Close() // Ignore error, best effort cleanup
+	_ = cmd.Wait()    // Ignore error, best effort cleanup
 }
 
 // TestE2E_LongPassword tests handling of passwords >1KB
@@ -554,7 +581,7 @@ func TestE2E_LongPassword(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, binary)
+	cmd := exec.CommandContext(ctx, binary) //nolint:gosec // G204: Running test binary, path is controlled
 	cmd.Env = append(os.Environ(),
 		fmt.Sprintf("PINENTRY_PROTON_CONFIG=%s", configPath),
 		fmt.Sprintf("PATH=%s:%s", binDir, os.Getenv("PATH")),
@@ -562,10 +589,12 @@ func TestE2E_LongPassword(t *testing.T) {
 
 	stdin, _ := cmd.StdinPipe()
 	stdout, _ := cmd.StdoutPipe()
-	cmd.Start()
+	if err := cmd.Start(); err != nil {
+		t.Fatalf("Failed to start command: %v", err)
+	}
 	defer func() {
 		if cmd.Process != nil {
-			cmd.Process.Kill()
+			_ = cmd.Process.Kill() // Ignore error, best effort cleanup
 		}
 	}()
 
@@ -576,7 +605,7 @@ func TestE2E_LongPassword(t *testing.T) {
 
 	scanner.Scan() // greeting
 
-	fmt.Fprintf(stdin, "GETPIN\n")
+	_, _ = fmt.Fprintf(stdin, "GETPIN\n")
 	scanner.Scan() // data
 	dataLine := scanner.Text()
 
@@ -585,10 +614,10 @@ func TestE2E_LongPassword(t *testing.T) {
 	testutil.AssertEqual(t, longPassword, decodedPassword, "Long password should match")
 
 	scanner.Scan() // OK
-	fmt.Fprintf(stdin, "BYE\n")
+	_, _ = fmt.Fprintf(stdin, "BYE\n")
 	scanner.Scan()
-	stdin.Close()
-	cmd.Wait()
+	_ = stdin.Close() // Ignore error, best effort cleanup
+	_ = cmd.Wait()    // Ignore error, best effort cleanup
 }
 
 // TestE2E_SpecialCharacters tests passwords with special characters
@@ -614,7 +643,7 @@ func TestE2E_SpecialCharacters(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 			defer cancel()
 
-			cmd := exec.CommandContext(ctx, binary)
+			cmd := exec.CommandContext(ctx, binary) //nolint:gosec // G204: Running test binary, path is controlled //nolint:gosec // G204: Running test binary, path is controlled
 			cmd.Env = append(os.Environ(),
 				fmt.Sprintf("PINENTRY_PROTON_CONFIG=%s", configPath),
 				fmt.Sprintf("PATH=%s:%s", binDir, os.Getenv("PATH")),
@@ -622,17 +651,19 @@ func TestE2E_SpecialCharacters(t *testing.T) {
 
 			stdin, _ := cmd.StdinPipe()
 			stdout, _ := cmd.StdoutPipe()
-			cmd.Start()
+			if err := cmd.Start(); err != nil {
+				t.Fatalf("Failed to start command: %v", err)
+			}
 			defer func() {
 				if cmd.Process != nil {
-					cmd.Process.Kill()
+					_ = cmd.Process.Kill() // Ignore error, best effort cleanup
 				}
 			}()
 
 			scanner := bufio.NewScanner(stdout)
 			scanner.Scan() // greeting
 
-			fmt.Fprintf(stdin, "GETPIN\n")
+			_, _ = fmt.Fprintf(stdin, "GETPIN\n")
 			scanner.Scan() // data
 			dataLine := scanner.Text()
 
@@ -640,10 +671,10 @@ func TestE2E_SpecialCharacters(t *testing.T) {
 			testutil.AssertEqual(t, tt.password, decodedPassword, "Special character password should match")
 
 			scanner.Scan() // OK
-			fmt.Fprintf(stdin, "BYE\n")
+			_, _ = fmt.Fprintf(stdin, "BYE\n")
 			scanner.Scan()
-			stdin.Close()
-			cmd.Wait()
+			_ = stdin.Close() // Ignore error, best effort cleanup
+			_ = cmd.Wait()    // Ignore error, best effort cleanup
 		})
 	}
 }
@@ -680,13 +711,17 @@ func createE2EConfig(t *testing.T, mockCLI, vault, item string) (string, string)
 
 	// Create a bin directory with pass-cli symlink/wrapper
 	binDir := filepath.Join(tmpDir, "bin")
-	os.MkdirAll(binDir, 0755)
+	if err := os.MkdirAll(binDir, 0755); err != nil { //nolint:gosec // G301: Standard directory permissions for test fixtures
+		t.Fatalf("Failed to create bin directory: %v", err)
+	}
 
 	passCLIPath := filepath.Join(binDir, "pass-cli")
 
 	// Create a wrapper script
 	wrapper := fmt.Sprintf("#!/bin/bash\nexec '%s' \"$@\"\n", mockCLI)
-	os.WriteFile(passCLIPath, []byte(wrapper), 0755)
+	if err := os.WriteFile(passCLIPath, []byte(wrapper), 0755); err != nil { //nolint:gosec // G306: Executable script needs 0755
+		t.Fatalf("Failed to write wrapper script: %v", err)
+	}
 
 	return configPath, binDir
 }
@@ -696,7 +731,7 @@ func percentDecode(s string) string {
 	for i := 0; i < len(s); i++ {
 		if s[i] == '%' && i+2 < len(s) {
 			var b byte
-			fmt.Sscanf(s[i+1:i+3], "%02X", &b)
+			_, _ = fmt.Sscanf(s[i+1:i+3], "%02X", &b)
 			buf.WriteByte(b)
 			i += 2
 		} else {
@@ -704,22 +739,4 @@ func percentDecode(s string) string {
 		}
 	}
 	return buf.String()
-}
-
-// readOutput reads all available output with a timeout
-func readOutput(r io.Reader, timeout time.Duration) ([]byte, error) {
-	done := make(chan struct{})
-	var buf bytes.Buffer
-
-	go func() {
-		io.Copy(&buf, r)
-		close(done)
-	}()
-
-	select {
-	case <-done:
-		return buf.Bytes(), nil
-	case <-time.After(timeout):
-		return buf.Bytes(), fmt.Errorf("timeout reading output")
-	}
 }

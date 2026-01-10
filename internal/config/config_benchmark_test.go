@@ -30,8 +30,14 @@ mappings:
 		b.Fatalf("Failed to create test config: %v", err)
 	}
 
-	os.Setenv("PINENTRY_PROTON_CONFIG", configPath)
-	defer os.Unsetenv("PINENTRY_PROTON_CONFIG")
+	if err := os.Setenv("PINENTRY_PROTON_CONFIG", configPath); err != nil {
+		b.Fatalf("Failed to set environment variable: %v", err)
+	}
+	defer func() {
+		if err := os.Unsetenv("PINENTRY_PROTON_CONFIG"); err != nil {
+			b.Errorf("Failed to unset environment variable: %v", err)
+		}
+	}()
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -64,8 +70,14 @@ mappings:
 		b.Fatalf("Failed to create test config: %v", err)
 	}
 
-	os.Setenv("PINENTRY_PROTON_CONFIG", configPath)
-	defer os.Unsetenv("PINENTRY_PROTON_CONFIG")
+	if err := os.Setenv("PINENTRY_PROTON_CONFIG", configPath); err != nil {
+		b.Fatalf("Failed to set environment variable: %v", err)
+	}
+	defer func() {
+		if err := os.Unsetenv("PINENTRY_PROTON_CONFIG"); err != nil {
+			b.Errorf("Failed to unset environment variable: %v", err)
+		}
+	}()
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {

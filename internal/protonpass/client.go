@@ -72,7 +72,7 @@ func (c *Client) RetrievePassword(ctx context.Context, itemURI string) ([]byte, 
 	}
 
 	// Execute pass-cli to get the item
-	cmd := exec.CommandContext(ctx, c.cliPath, "item", "get", itemRef, "--field", field)
+	cmd := exec.CommandContext(ctx, c.cliPath, "item", "get", itemRef, "--field", field) //nolint:gosec // G204: itemRef/field from user config, cliPath controlled by app
 
 	// Capture stdout and stderr
 	output, err := cmd.CombinedOutput()

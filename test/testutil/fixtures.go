@@ -89,9 +89,9 @@ func SetupTestEnvironment(t *testing.T) (tempDir string, cleanup func()) {
 		// Restore original environment
 		for key, val := range origEnv {
 			if val == "" {
-				os.Unsetenv(key)
+				_ = os.Unsetenv(key) // Ignore error, best effort cleanup
 			} else {
-				os.Setenv(key, val)
+				_ = os.Setenv(key, val) // Ignore error, best effort cleanup
 			}
 		}
 	}
@@ -186,18 +186,18 @@ func CreateTempFile(t *testing.T, content string) string {
 	}
 
 	if _, err := tmpFile.WriteString(content); err != nil {
-		tmpFile.Close()
+		_ = tmpFile.Close() // Ignore error, we're already in error path
 		t.Fatalf("Failed to write to temp file: %v", err)
 	}
 
-	tmpFile.Close()
+	_ = tmpFile.Close() // Ignore error, data was already flushed
 	return tmpFile.Name()
 }
 
 // MakeExecutable makes a file executable
 func MakeExecutable(t *testing.T, path string) {
 	t.Helper()
-	if err := os.Chmod(path, 0755); err != nil {
+	if err := os.Chmod(path, 0755); err != nil { //nolint:gosec // G302: Intentionally making file executable
 		t.Fatalf("Failed to make file executable: %v", err)
 	}
 }

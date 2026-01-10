@@ -36,7 +36,7 @@ func TestBasicProtocol(t *testing.T) {
 	defer cancel()
 
 	cmd, stdin, stdout := setupPinentryCommand(t, ctx)
-	defer cmd.Process.Kill()
+	defer func() { _ = cmd.Process.Kill() }() // Ignore error, best effort cleanup
 
 	// Read greeting
 	greeting := readLine(t, stdout, responseTimeout)
@@ -82,7 +82,7 @@ func TestSetAndGetOptions(t *testing.T) {
 	defer cancel()
 
 	cmd, stdin, stdout := setupPinentryCommand(t, ctx)
-	defer cmd.Process.Kill()
+	defer func() { _ = cmd.Process.Kill() }() // Ignore error, best effort cleanup
 
 	readLine(t, stdout, responseTimeout) // greeting
 
@@ -131,7 +131,7 @@ func TestGetPinWithMockProtonPass(t *testing.T) {
 		"PINENTRY_PROTON_CONFIG": configPath,
 		"PATH":                   mockPassDir + ":" + os.Getenv("PATH"),
 	})
-	defer cmd.Process.Kill()
+	defer func() { _ = cmd.Process.Kill() }() // Ignore error, best effort cleanup
 
 	readLine(t, stdout, responseTimeout) // greeting
 
@@ -189,7 +189,7 @@ func TestGetPinWithGPGContext(t *testing.T) {
 		"PINENTRY_PROTON_CONFIG": configPath,
 		"PATH":                   mockPassDir + ":" + os.Getenv("PATH"),
 	})
-	defer cmd.Process.Kill()
+	defer func() { _ = cmd.Process.Kill() }() // Ignore error, best effort cleanup
 
 	readLine(t, stdout, responseTimeout) // greeting
 
@@ -238,7 +238,7 @@ func TestCancelGetPin(t *testing.T) {
 		"PINENTRY_PROTON_CONFIG": configPath,
 		"PATH":                   mockPassDir + ":" + os.Getenv("PATH"),
 	})
-	defer cmd.Process.Kill()
+	defer func() { _ = cmd.Process.Kill() }() // Ignore error, best effort cleanup
 
 	readLine(t, stdout, responseTimeout) // greeting
 
@@ -264,7 +264,7 @@ func TestInvalidCommands(t *testing.T) {
 	defer cancel()
 
 	cmd, stdin, stdout := setupPinentryCommand(t, ctx)
-	defer cmd.Process.Kill()
+	defer func() { _ = cmd.Process.Kill() }() // Ignore error, best effort cleanup
 
 	readLine(t, stdout, responseTimeout) // greeting
 
@@ -311,7 +311,7 @@ func TestMultipleGetPin(t *testing.T) {
 		"PINENTRY_PROTON_CONFIG": configPath,
 		"PATH":                   mockPassDir + ":" + os.Getenv("PATH"),
 	})
-	defer cmd.Process.Kill()
+	defer func() { _ = cmd.Process.Kill() }() // Ignore error, best effort cleanup
 
 	readLine(t, stdout, responseTimeout) // greeting
 
@@ -359,7 +359,7 @@ func cleanExit(t *testing.T, cmd *exec.Cmd) {
 		}
 	case <-waitCtx.Done():
 		t.Log("Command did not exit in time, killing")
-		cmd.Process.Kill()
+		_ = cmd.Process.Kill() // Ignore error, best effort cleanup
 	}
 }
 
@@ -372,7 +372,7 @@ func setupPinentryCommandWithEnv(t *testing.T, ctx context.Context, env map[stri
 	t.Helper()
 
 	binPath := getPinentryBinaryPath(t)
-	cmd := exec.CommandContext(ctx, binPath)
+	cmd := exec.CommandContext(ctx, binPath) //nolint:gosec // G204: Running test binary, path is controlled
 
 	// Set environment
 	cmd.Env = os.Environ()
@@ -515,7 +515,7 @@ echo "Error: Unknown command" >&2
 exit 1
 `, password)
 
-	if err := os.WriteFile(path, []byte(script), 0755); err != nil {
+	if err := os.WriteFile(path, []byte(script), 0755); err != nil { //nolint:gosec // G306: Executable script needs 0755
 		t.Fatal(err)
 	}
 }
@@ -527,7 +527,7 @@ func createMockPassCLIWithError(t *testing.T, path string) {
 echo "Error: user cancelled" >&2
 exit 1
 `
-	if err := os.WriteFile(path, []byte(script), 0755); err != nil {
+	if err := os.WriteFile(path, []byte(script), 0755); err != nil { //nolint:gosec // G306: Executable script needs 0755
 		t.Fatal(err)
 	}
 }

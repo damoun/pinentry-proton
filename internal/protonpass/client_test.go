@@ -521,7 +521,7 @@ echo "Error: Item not found" >&2
 exit 1
 `, vault, item, field, escapedPassword)
 
-	if err := os.WriteFile(cliPath, []byte(script), 0755); err != nil {
+	if err := os.WriteFile(cliPath, []byte(script), 0755); err != nil { //nolint:gosec // G306: Executable script needs 0755
 		tb.Fatalf("Failed to create mock CLI: %v", err)
 	}
 
@@ -539,7 +539,7 @@ echo "%s" >&2
 exit 1
 `, errorMsg)
 
-	if err := os.WriteFile(cliPath, []byte(script), 0755); err != nil {
+	if err := os.WriteFile(cliPath, []byte(script), 0755); err != nil { //nolint:gosec // G306: Executable script needs 0755
 		tb.Fatalf("Failed to create error mock CLI: %v", err)
 	}
 
@@ -558,7 +558,7 @@ echo "delayed-password"
 exit 0
 `, int(delay.Seconds())+1)
 
-	if err := os.WriteFile(cliPath, []byte(script), 0755); err != nil {
+	if err := os.WriteFile(cliPath, []byte(script), 0755); err != nil { //nolint:gosec // G306: Executable script needs 0755
 		tb.Fatalf("Failed to create delay mock CLI: %v", err)
 	}
 

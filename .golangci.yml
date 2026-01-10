@@ -3,10 +3,6 @@ version: '2'
 
 run:
   timeout: 5m
-  issues-exit-code: 1
-
-output:
-  format: colored-line-number
 
 linters:
   enable:
@@ -23,15 +19,3 @@ formatters:
   enable:
     - gofmt
     - goimports
-
-linters-settings:
-  gocyclo:
-    min-complexity: 10
-  gocognit:
-    min-complexity: 15
-  lll:
-    line-length: 120
-
-issues:
-  max-issues-per-linter: 0
-  max-same-issues: 0

@@ -79,22 +79,6 @@ repos:
         pass_filenames: false
         stages: [pre-push]
 
-      - id: go-test-race
-        name: go test (with race detection)
-        entry: bash -c 'go test -v -race ./...'
-        language: system
-        types: [go]
-        pass_filenames: false
-        stages: [pre-push]
-
-      - id: golangci-lint-full
-        name: golangci-lint (full)
-        entry: bash -c 'command -v golangci-lint >/dev/null 2>&1 && golangci-lint run ./... || echo "WARNING golangci-lint not installed, skipping lint checks"'
-        language: system
-        types: [go]
-        pass_filenames: false
-        stages: [pre-push]
-
       - id: go-mod-verify-push
         name: go mod verify (push)
         entry: bash -c 'go mod verify'
@@ -114,6 +98,22 @@ repos:
       - id: build-verification
         name: build verification
         entry: bash -c 'make build'
+        language: system
+        types: [go]
+        pass_filenames: false
+        stages: [pre-push]
+
+      - id: go-test-race
+        name: go test (with race detection)
+        entry: bash -c 'go test -v -race ./...'
+        language: system
+        types: [go]
+        pass_filenames: false
+        stages: [pre-push]
+
+      - id: golangci-lint-full
+        name: golangci-lint (full)
+        entry: bash -c 'command -v golangci-lint >/dev/null 2>&1 && golangci-lint run ./... || echo "WARNING golangci-lint not installed, skipping lint checks"'
         language: system
         types: [go]
         pass_filenames: false

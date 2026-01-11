@@ -8,6 +8,8 @@ Pinentry-Proton is a secure pinentry program that integrates ProtonPass with GPG
 
 **Core Purpose**: Act as a pinentry replacement that retrieves passwords from ProtonPass instead of prompting the user interactively.
 
+**Primary Use Case**: Enable signing git commits (and other GPG/SSH operations) without repeated PIN entry. User unlocks ProtonPass UI once at session start, then pinentry-proton automatically fetches PINs for GPG operations like commit signing - eliminating repetitive manual PIN entry.
+
 ## Essential Commands
 
 ### Build & Development
@@ -30,11 +32,17 @@ make lint
 
 ### Testing
 ```bash
-# Run unit tests only
-make test
+# Run unit tests (internal packages only)
+make test-unit
 
 # Run unit tests with race detection
-go test -race ./...
+go test -race ./internal/...
+
+# Run E2E tests (mock ProtonPass, no auth needed)
+make test-e2e
+
+# Run tests with real ProtonPass (requires auth)
+make test-realpass
 
 # Run integration tests (requires built binary)
 make test-integration
@@ -51,8 +59,20 @@ make test-all
 # Setup test keys for GPG and SSH
 make test-setup
 
-# Generate coverage report
-make coverage
+# Generate coverage report with threshold check (75%)
+make test-coverage-check
+
+# Run CI test suite (unit + coverage check)
+make test-ci
+
+# Run benchmarks
+make benchmark
+
+# Save benchmark baseline
+make benchmark-save
+
+# Compare with baseline (requires benchstat)
+make benchmark-compare
 ```
 
 ### Running Single Tests
@@ -342,24 +362,91 @@ See SECURITY.md for comprehensive security policy and threat model.
 
 ## Testing Architecture
 
+### Test Suite Overview
+
+The project has **comprehensive test coverage (82.4%)**  with multiple test layers:
+
+- **Unit Tests** - Package-level tests with mocks (protonpass: 88.2%, platform: 100%)
+- **E2E Tests** - Mock-based application tests (no ProtonPass auth required, runs in CI)
+- **Integration Tests** - Binary protocol tests with real pinentry commands
+- **Benchmarks** - Performance baselines and regression detection
+- **GPG/SSH Tests** - Real cryptographic operations (optional, requires ProtonPass auth)
+
+### Coverage Enforcement
+
+**Minimum coverage: 75%** - Enforced in CI and `make test-coverage-check`
+
+Current coverage:
+- Overall: **82.4%**
+- ProtonPass: 88.2%
+- Platform: 100%
+- Config: 87.1%
+- Protocol: 77.4%
+
 ### Test Requirements
+
 - **Test PIN**: All tests use `424242` as the test passphrase
-- **Test ProtonPass Item**: Use the URI in `test/fixtures/test-config.yaml`
-- **Mock pass-cli**: Integration tests create a mock `pass` binary returning `424242`
+- **Mock Infrastructure**: E2E tests use sophisticated mock pass-cli (no ProtonPass needed)
+- **Optional Real Tests**: Use `-tags=realpass` for tests with real ProtonPass
+- **Test Vault**: Real ProtonPass tests require `pass://test/pinentry-code/password`
 
 ### Test Structure
+
 ```
-test/fixtures/           Test data, keys, mock configs
-test/integration_test.go Go integration tests (binary + protocol)
-test/test_gpg.sh         End-to-end GPG workflow
-test/test_ssh.sh         End-to-end SSH workflow
-test/run_all_tests.sh    Master test runner
+test/
+├── testutil/                # Shared test utilities
+│   ├── fixtures.go          # Config helpers, assertions, setup
+│   └── mock_pass.go         # Mock ProtonPass CLI implementation
+├── e2e/                     # End-to-end tests (mock-based, CI-friendly)
+│   ├── e2e_test.go          # Complete workflows without ProtonPass
+│   └── e2e_realpass_test.go # Optional tests with real pass-cli
+├── fixtures/                # Test data, keys, mock configs
+├── integration_test.go      # Binary protocol tests
+├── test_gpg.sh             # GPG workflow (requires ProtonPass)
+├── test_ssh.sh             # SSH workflow (requires ProtonPass)
+└── run_all_tests.sh        # Master test runner
+
+internal/*/
+├── *_test.go               # Unit tests (table-driven, comprehensive)
+└── *_benchmark_test.go     # Performance benchmarks
 ```
 
 ### Test Keys
+
 - Located in `test/fixtures/gnupg/` (GPG) and `test/fixtures/ssh/` (SSH)
 - All use passphrase `424242`
 - **Never use in production** - committed for testing only
+
+### Writing Tests
+
+**Unit Tests:**
+- Use table-driven tests with subtests (`t.Run()`)
+- Mock external dependencies (ProtonPass CLI)
+- Test error cases and edge conditions
+- Ensure 75%+ coverage for new code
+
+**E2E Tests:**
+- Use shared `test/testutil` utilities
+- Create isolated test environments (temp dirs, mock CLIs)
+- Test complete protocol flows
+- Verify cleanup and memory zeroing
+
+**Benchmarks:**
+- Use `testing.B` interface
+- Include memory allocation stats (`-benchmem`)
+- Test at multiple scales (small, medium, large data)
+- Save baselines with `make benchmark-save`
+
+### CI/CD Integration
+
+Tests run automatically on GitHub Actions:
+- Matrix: Ubuntu + macOS, Go 1.21 + 1.22
+- Unit tests with race detection
+- E2E tests (no ProtonPass needed)
+- Coverage enforcement (fails if <75%)
+- Benchmark tracking (artifacts stored for 30 days)
+
+See `TESTING.md` for detailed testing guide.
 
 ## Common Development Patterns
 

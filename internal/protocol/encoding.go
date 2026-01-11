@@ -14,9 +14,14 @@ func UnescapeArg(s string) string {
 		if s[i] == '%' && i+2 < len(s) {
 			// Decode hex
 			var b byte
-			fmt.Sscanf(s[i+1:i+3], "%02x", &b)
-			result.WriteByte(b)
-			i += 3
+			if _, err := fmt.Sscanf(s[i+1:i+3], "%02x", &b); err == nil {
+				result.WriteByte(b)
+				i += 3
+			} else {
+				// If decoding fails, keep the literal '%'
+				result.WriteByte(s[i])
+				i++
+			}
 		} else {
 			result.WriteByte(s[i])
 			i++

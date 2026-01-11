@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 )
@@ -35,7 +36,7 @@ func TestBasicProtocol(t *testing.T) {
 	defer cancel()
 
 	cmd, stdin, stdout := setupPinentryCommand(t, ctx)
-	defer cmd.Process.Kill()
+	defer func() { _ = cmd.Process.Kill() }() // Ignore error, best effort cleanup
 
 	// Read greeting
 	greeting := readLine(t, stdout, responseTimeout)
@@ -43,14 +44,31 @@ func TestBasicProtocol(t *testing.T) {
 		t.Errorf("Unexpected greeting: %s", greeting)
 	}
 
-	// Test GETINFO commands
-	testCommand(t, stdin, stdout, "GETINFO version", "D ")
-	testCommand(t, stdin, stdout, "GETINFO pid", "D ")
-	testCommand(t, stdin, stdout, "GETINFO flavor", "D proton")
+	// Test GETINFO commands (each returns D line + OK line)
+	writeCommand(t, stdin, "GETINFO version")
+	response := readLine(t, stdout, responseTimeout)
+	if !strings.HasPrefix(response, "D ") {
+		t.Errorf("GETINFO version: expected D line, got: %s", response)
+	}
+	readLine(t, stdout, responseTimeout) // Read OK
+
+	writeCommand(t, stdin, "GETINFO pid")
+	response = readLine(t, stdout, responseTimeout)
+	if !strings.HasPrefix(response, "D ") {
+		t.Errorf("GETINFO pid: expected D line, got: %s", response)
+	}
+	readLine(t, stdout, responseTimeout) // Read OK
+
+	writeCommand(t, stdin, "GETINFO flavor")
+	response = readLine(t, stdout, responseTimeout)
+	if !strings.HasPrefix(response, "D proton") {
+		t.Errorf("GETINFO flavor: expected D proton, got: %s", response)
+	}
+	readLine(t, stdout, responseTimeout) // Read OK
 
 	// Clean shutdown
 	writeCommand(t, stdin, "BYE")
-	response := readLine(t, stdout, responseTimeout)
+	response = readLine(t, stdout, responseTimeout)
 	if !strings.HasPrefix(response, "OK") {
 		t.Errorf("Expected OK on BYE, got: %s", response)
 	}
@@ -64,7 +82,7 @@ func TestSetAndGetOptions(t *testing.T) {
 	defer cancel()
 
 	cmd, stdin, stdout := setupPinentryCommand(t, ctx)
-	defer cmd.Process.Kill()
+	defer func() { _ = cmd.Process.Kill() }() // Ignore error, best effort cleanup
 
 	readLine(t, stdout, responseTimeout) // greeting
 
@@ -99,7 +117,7 @@ func TestGetPinWithMockProtonPass(t *testing.T) {
 
 	// Create mock pass binary
 	mockPassDir := t.TempDir()
-	mockPassPath := filepath.Join(mockPassDir, "pass")
+	mockPassPath := filepath.Join(mockPassDir, "pass-cli")
 	createMockPassCLI(t, mockPassPath, testPIN)
 
 	// Create test config
@@ -113,7 +131,7 @@ func TestGetPinWithMockProtonPass(t *testing.T) {
 		"PINENTRY_PROTON_CONFIG": configPath,
 		"PATH":                   mockPassDir + ":" + os.Getenv("PATH"),
 	})
-	defer cmd.Process.Kill()
+	defer func() { _ = cmd.Process.Kill() }() // Ignore error, best effort cleanup
 
 	readLine(t, stdout, responseTimeout) // greeting
 
@@ -158,7 +176,7 @@ func TestGetPinWithGPGContext(t *testing.T) {
 	}
 
 	mockPassDir := t.TempDir()
-	mockPassPath := filepath.Join(mockPassDir, "pass")
+	mockPassPath := filepath.Join(mockPassDir, "pass-cli")
 	createMockPassCLI(t, mockPassPath, testPIN)
 
 	configPath := filepath.Join(t.TempDir(), "config.yaml")
@@ -171,7 +189,7 @@ func TestGetPinWithGPGContext(t *testing.T) {
 		"PINENTRY_PROTON_CONFIG": configPath,
 		"PATH":                   mockPassDir + ":" + os.Getenv("PATH"),
 	})
-	defer cmd.Process.Kill()
+	defer func() { _ = cmd.Process.Kill() }() // Ignore error, best effort cleanup
 
 	readLine(t, stdout, responseTimeout) // greeting
 
@@ -206,7 +224,7 @@ func TestCancelGetPin(t *testing.T) {
 	}
 
 	mockPassDir := t.TempDir()
-	mockPassPath := filepath.Join(mockPassDir, "pass")
+	mockPassPath := filepath.Join(mockPassDir, "pass-cli")
 	// Mock that simulates user cancellation (exits with error)
 	createMockPassCLIWithError(t, mockPassPath)
 
@@ -220,7 +238,7 @@ func TestCancelGetPin(t *testing.T) {
 		"PINENTRY_PROTON_CONFIG": configPath,
 		"PATH":                   mockPassDir + ":" + os.Getenv("PATH"),
 	})
-	defer cmd.Process.Kill()
+	defer func() { _ = cmd.Process.Kill() }() // Ignore error, best effort cleanup
 
 	readLine(t, stdout, responseTimeout) // greeting
 
@@ -246,7 +264,7 @@ func TestInvalidCommands(t *testing.T) {
 	defer cancel()
 
 	cmd, stdin, stdout := setupPinentryCommand(t, ctx)
-	defer cmd.Process.Kill()
+	defer func() { _ = cmd.Process.Kill() }() // Ignore error, best effort cleanup
 
 	readLine(t, stdout, responseTimeout) // greeting
 
@@ -280,7 +298,7 @@ func TestMultipleGetPin(t *testing.T) {
 	}
 
 	mockPassDir := t.TempDir()
-	mockPassPath := filepath.Join(mockPassDir, "pass")
+	mockPassPath := filepath.Join(mockPassDir, "pass-cli")
 	createMockPassCLI(t, mockPassPath, testPIN)
 
 	configPath := filepath.Join(t.TempDir(), "config.yaml")
@@ -293,7 +311,7 @@ func TestMultipleGetPin(t *testing.T) {
 		"PINENTRY_PROTON_CONFIG": configPath,
 		"PATH":                   mockPassDir + ":" + os.Getenv("PATH"),
 	})
-	defer cmd.Process.Kill()
+	defer func() { _ = cmd.Process.Kill() }() // Ignore error, best effort cleanup
 
 	readLine(t, stdout, responseTimeout) // greeting
 
@@ -341,20 +359,20 @@ func cleanExit(t *testing.T, cmd *exec.Cmd) {
 		}
 	case <-waitCtx.Done():
 		t.Log("Command did not exit in time, killing")
-		cmd.Process.Kill()
+		_ = cmd.Process.Kill() // Ignore error, best effort cleanup
 	}
 }
 
-func setupPinentryCommand(t *testing.T, ctx context.Context) (*exec.Cmd, io.Writer, io.Reader) {
+func setupPinentryCommand(t *testing.T, ctx context.Context) (*exec.Cmd, io.Writer, *bufio.Reader) {
 	t.Helper()
 	return setupPinentryCommandWithEnv(t, ctx, nil)
 }
 
-func setupPinentryCommandWithEnv(t *testing.T, ctx context.Context, env map[string]string) (*exec.Cmd, io.Writer, io.Reader) {
+func setupPinentryCommandWithEnv(t *testing.T, ctx context.Context, env map[string]string) (*exec.Cmd, io.Writer, *bufio.Reader) {
 	t.Helper()
 
 	binPath := getPinentryBinaryPath(t)
-	cmd := exec.CommandContext(ctx, binPath)
+	cmd := exec.CommandContext(ctx, binPath) //nolint:gosec // G204: Running test binary, path is controlled
 
 	// Set environment
 	cmd.Env = os.Environ()
@@ -372,21 +390,47 @@ func setupPinentryCommandWithEnv(t *testing.T, ctx context.Context, env map[stri
 		t.Fatal(err)
 	}
 
-	// Capture stderr for debugging
-	var stderr bytes.Buffer
-	cmd.Stderr = &stderr
+	// Capture stderr for debugging (using StderrPipe to avoid race condition)
+	stderr, err := cmd.StderrPipe()
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	if err := cmd.Start(); err != nil {
 		t.Fatalf("Failed to start pinentry: %v", err)
 	}
 
+	// Read stderr in background to avoid blocking
+	// Use a synchronized buffer to avoid race conditions
+	type syncBuffer struct {
+		mu  sync.Mutex
+		buf bytes.Buffer
+	}
+	stderrBuf := &syncBuffer{}
+
+	var stderrDone sync.WaitGroup
+	stderrDone.Add(1)
+	go func() {
+		defer stderrDone.Done()
+		// Read stderr without holding lock during entire copy
+		data, _ := io.ReadAll(stderr)
+		stderrBuf.mu.Lock()
+		stderrBuf.buf.Write(data)
+		stderrBuf.mu.Unlock()
+	}()
+
 	t.Cleanup(func() {
-		if stderr.Len() > 0 {
-			t.Logf("Stderr output:\n%s", stderr.String())
+		// Wait for stderr goroutine to finish
+		stderrDone.Wait()
+		stderrBuf.mu.Lock()
+		defer stderrBuf.mu.Unlock()
+		if stderrBuf.buf.Len() > 0 {
+			t.Logf("Stderr output:\n%s", stderrBuf.buf.String())
 		}
 	})
 
-	return cmd, stdin, stdout
+	// Wrap stdout in a bufio.Reader to avoid recreating it on each read
+	return cmd, stdin, bufio.NewReader(stdout)
 }
 
 func writeCommand(t *testing.T, w io.Writer, cmd string) {
@@ -397,20 +441,18 @@ func writeCommand(t *testing.T, w io.Writer, cmd string) {
 	}
 }
 
-func readLine(t *testing.T, r io.Reader, timeout time.Duration) string {
+func readLine(t *testing.T, r *bufio.Reader, timeout time.Duration) string {
 	t.Helper()
 
 	result := make(chan string, 1)
 	errChan := make(chan error, 1)
 
 	go func() {
-		scanner := bufio.NewScanner(r)
-		if scanner.Scan() {
-			result <- scanner.Text()
-		} else if err := scanner.Err(); err != nil {
+		line, err := r.ReadString('\n')
+		if err != nil {
 			errChan <- err
 		} else {
-			errChan <- io.EOF
+			result <- strings.TrimSuffix(line, "\n")
 		}
 	}()
 
@@ -426,7 +468,7 @@ func readLine(t *testing.T, r io.Reader, timeout time.Duration) string {
 	}
 }
 
-func testCommand(t *testing.T, stdin io.Writer, stdout io.Reader, cmd, expectedPrefix string) {
+func testCommand(t *testing.T, stdin io.Writer, stdout *bufio.Reader, cmd, expectedPrefix string) {
 	t.Helper()
 	if cmd != "" {
 		writeCommand(t, stdin, cmd)
@@ -460,12 +502,20 @@ mappings:
 func createMockPassCLI(t *testing.T, path, password string) {
 	t.Helper()
 	script := fmt.Sprintf(`#!/bin/sh
-# Mock ProtonPass CLI that returns test password
-echo "%s"
-exit 0
+# Mock pass-cli that handles "item get" subcommands
+# Usage: pass-cli item get <item-ref> --field <field>
+
+if [ "$1" = "item" ] && [ "$2" = "get" ]; then
+    # Return the test password regardless of item/field
+    echo "%s"
+    exit 0
+fi
+
+echo "Error: Unknown command" >&2
+exit 1
 `, password)
 
-	if err := os.WriteFile(path, []byte(script), 0755); err != nil {
+	if err := os.WriteFile(path, []byte(script), 0755); err != nil { //nolint:gosec // G306: Executable script needs 0755
 		t.Fatal(err)
 	}
 }
@@ -477,7 +527,7 @@ func createMockPassCLIWithError(t *testing.T, path string) {
 echo "Error: user cancelled" >&2
 exit 1
 `
-	if err := os.WriteFile(path, []byte(script), 0755); err != nil {
+	if err := os.WriteFile(path, []byte(script), 0755); err != nil { //nolint:gosec // G306: Executable script needs 0755
 		t.Fatal(err)
 	}
 }

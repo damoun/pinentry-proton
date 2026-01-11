@@ -1,4 +1,4 @@
-.PHONY: build install test coverage lint clean help
+.PHONY: build install test coverage lint clean help test-unit test-e2e test-realpass benchmark benchmark-save benchmark-compare
 
 # Build variables
 BINARY_NAME=pinentry-proton
@@ -79,6 +79,63 @@ coverage:
 	$(GOCMD) tool cover -html=coverage.txt -o coverage.html
 	@echo "Coverage report generated: coverage.html"
 
+## test-unit: Run unit tests only (internal packages)
+test-unit:
+	$(GOTEST) -v -race ./internal/...
+
+## test-coverage: Generate detailed coverage report
+test-coverage:
+	$(GOTEST) -v -race -coverprofile=coverage.out ./internal/...
+	$(GOCMD) tool cover -html=coverage.out -o coverage.html
+	$(GOCMD) tool cover -func=coverage.out
+	@echo ""
+	@echo "Coverage report: coverage.html"
+
+## test-coverage-check: Verify coverage meets 75% threshold
+test-coverage-check: test-coverage
+	@coverage=$$($(GOCMD) tool cover -func=coverage.out | grep total | awk '{print $$3}' | sed 's/%//'); \
+	echo "Total coverage: $${coverage}%"; \
+	if [ $$(echo "$${coverage} < 75.0" | bc -l) -eq 1 ]; then \
+		echo "ERROR: Coverage $${coverage}% is below minimum 75%"; \
+		exit 1; \
+	else \
+		echo "✅ Coverage meets minimum threshold (75%)"; \
+	fi
+
+## test-ci: Run all CI tests (unit + coverage check)
+test-ci: test-unit test-coverage-check
+	@echo "✅ All CI tests passed!"
+
+## test-e2e: Run end-to-end tests
+test-e2e: build
+	$(GOTEST) -v -race ./test/e2e/...
+
+## test-realpass: Run tests with real ProtonPass (requires auth)
+test-realpass:
+	@echo "Running tests with real pass-cli..."
+	@echo "Requires: pass-cli authenticated + test vault"
+	$(GOTEST) -v -tags=realpass ./...
+
+## benchmark: Run all benchmarks
+benchmark:
+	$(GOTEST) -bench=. -benchmem -run=^$$ ./internal/...
+
+## benchmark-save: Save benchmark baseline
+benchmark-save:
+	$(GOTEST) -bench=. -benchmem -run=^$$ ./internal/... | tee benchmark-baseline.txt
+	@echo "Benchmark baseline saved to benchmark-baseline.txt"
+
+## benchmark-compare: Compare with baseline (requires benchstat)
+benchmark-compare: benchmark-save
+	$(GOTEST) -bench=. -benchmem -run=^$$ ./internal/... > benchmark-current.txt
+	@echo ""
+	@echo "Comparing benchmarks (install benchstat: go install golang.org/x/perf/cmd/benchstat@latest)"
+	@if command -v benchstat >/dev/null 2>&1; then \
+		benchstat benchmark-baseline.txt benchmark-current.txt; \
+	else \
+		echo "benchstat not found. Install it with: go install golang.org/x/perf/cmd/benchstat@latest"; \
+	fi
+
 ## lint: Run linters
 lint:
 	@if command -v golangci-lint >/dev/null 2>&1; then \
@@ -108,7 +165,8 @@ mod-download:
 clean:
 	$(GOCLEAN)
 	rm -f $(BINARY_NAME)
-	rm -f coverage.txt coverage.html
+	rm -f coverage.txt coverage.html coverage.out
+	rm -f benchmark-baseline.txt benchmark-current.txt benchmark.txt
 	rm -f *.prof
 
 ## check: Run all checks (fmt, vet, lint, test)

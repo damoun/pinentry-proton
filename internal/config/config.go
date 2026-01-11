@@ -110,7 +110,7 @@ func getConfigPaths() []string {
 
 // loadFromFile loads configuration from a YAML file
 func loadFromFile(path string) (*Config, error) {
-	data, err := os.ReadFile(path)
+	data, err := os.ReadFile(path) //nolint:gosec // G304: Config file path from user's environment, not external input
 	if err != nil {
 		return nil, err
 	}

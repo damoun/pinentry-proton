@@ -69,15 +69,32 @@ jobs:
     - name: Run go vet
       run: go vet ./...
       
-    - name: Run tests
-      run: go test -v -race -coverprofile=coverage.txt -covermode=atomic ./...
-      
+    - name: Run unit tests
+      run: go test -v -race -coverprofile=coverage.txt -covermode=atomic ./internal/...
+
+    - name: Build binary for E2E tests
+      run: make build
+
+    - name: Run E2E tests
+      run: go test -v -race ./test/e2e/...
+
+    - name: Check coverage threshold
+      if: matrix.os == 'ubuntu-latest' && matrix.go-version == '1.22'
+      run: |
+        coverage=$(go tool cover -func=coverage.txt | grep total | awk '{print $3}' | sed 's/%//')
+        echo "Total coverage: ${coverage}%"
+        if (( $(echo "$coverage < 75.0" | bc -l) )); then
+          echo "ERROR: Coverage ${coverage}% is below minimum 75%"
+          exit 1
+        fi
+        echo "✅ Coverage ${coverage}% meets minimum threshold"
+
     - name: Upload coverage
       if: matrix.os == 'ubuntu-latest' && matrix.go-version == '1.22'
       uses: codecov/codecov-action@v4
       with:
         files: ./coverage.txt
-        flags: unittests
+        flags: unittests,e2e
         name: codecov-umbrella
         fail_ci_if_error: false
 
@@ -95,9 +112,9 @@ jobs:
         go-version: '1.22'
         
     - name: Run golangci-lint
-      uses: golangci/golangci-lint-action@v4
+      uses: golangci/golangci-lint-action@v9
       with:
-        version: latest
+        version: v2.8.0
         args: --timeout=5m
 
   build:
@@ -133,22 +150,50 @@ jobs:
   security:
     name: Security Scan
     runs-on: ubuntu-latest
-    
+    permissions:
+      contents: read
+      security-events: write
+      actions: read
+
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
-      
+
     - name: Set up Go
       uses: actions/setup-go@v5
       with:
         go-version: '1.22'
-        
+
     - name: Run Gosec Security Scanner
       uses: securego/gosec@master
       with:
         args: '-no-fail -fmt sarif -out results.sarif ./...'
-        
+
     - name: Upload SARIF file
-      uses: github/codeql-action/upload-sarif@v3
+      uses: github/codeql-action/upload-sarif@v4
       with:
         sarif_file: results.sarif
+
+  benchmark:
+    name: Benchmarks
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.22'
+
+    - name: Run benchmarks
+      run: |
+        go test -bench=. -benchmem -benchtime=1s -run=^$ ./internal/... | tee benchmark.txt
+
+    - name: Store benchmark results
+      uses: actions/upload-artifact@v4
+      with:
+        name: benchmark-results
+        path: benchmark.txt
+        retention-days: 30

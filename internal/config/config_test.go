@@ -27,8 +27,14 @@ mappings:
 	}
 
 	// Set environment variable to use our temp config
-	os.Setenv("PINENTRY_PROTON_CONFIG", configPath)
-	defer os.Unsetenv("PINENTRY_PROTON_CONFIG")
+	if err := os.Setenv("PINENTRY_PROTON_CONFIG", configPath); err != nil {
+		t.Fatalf("Failed to set environment variable: %v", err)
+	}
+	defer func() {
+		if err := os.Unsetenv("PINENTRY_PROTON_CONFIG"); err != nil {
+			t.Errorf("Failed to unset environment variable: %v", err)
+		}
+	}()
 
 	config, err := Load()
 	if err != nil {

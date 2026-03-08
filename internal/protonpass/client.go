@@ -61,27 +61,33 @@ func (c *Client) RetrievePassword(ctx context.Context, itemURI string) ([]byte, 
 	// Determine if we're getting a specific field or default to password
 	field := "password"
 	if len(parts) >= 3 {
+		if parts[2] == "" {
+			return nil, fmt.Errorf("invalid item URI format: %s (field cannot be empty)", itemURI)
+		}
 		field = parts[2]
 	}
 
-	// Build the item reference (vault/item)
-	itemRef := strings.Join(parts[:2], "/")
+	// Build the full URI with field embedded: pass://vault/item/field
+	fullURI := "pass://" + strings.Join(parts[:2], "/") + "/" + field
 
 	if DebugMode {
-		log.Printf("[DEBUG] Item reference: %s, field: %s", itemRef, field)
+		log.Printf("[DEBUG] Full URI: %s", fullURI)
 	}
 
-	// Execute pass-cli to get the item
-	cmd := exec.CommandContext(ctx, c.cliPath, "item", "get", itemRef, "--field", field) //nolint:gosec // G204: itemRef/field from user config, cliPath controlled by app
+	// Execute pass-cli to get the item, passing the full URI (field embedded in path)
+	cmd := exec.CommandContext(ctx, c.cliPath, "item", "view", fullURI) //nolint:gosec // G204: fullURI from user config, cliPath controlled by app
 
-	// Capture stdout and stderr
-	output, err := cmd.CombinedOutput()
+	// Capture stdout only; stderr is captured separately to avoid corrupting the password
+	var stderrBuf strings.Builder
+	cmd.Stderr = &stderrBuf
+	output, err := cmd.Output()
 	if err != nil {
+		stderrOutput := stderrBuf.String()
 		if DebugMode {
-			log.Printf("[DEBUG] pass-cli error: %v, output: %s", err, string(output))
+			log.Printf("[DEBUG] pass-cli error: %v, stderr: %s", err, stderrOutput)
 		}
 		if exitErr, ok := err.(*exec.ExitError); ok {
-			return nil, fmt.Errorf("pass-cli error (exit %d): %s", exitErr.ExitCode(), string(output))
+			return nil, fmt.Errorf("pass-cli error (exit %d): %s", exitErr.ExitCode(), stderrOutput)
 		}
 		return nil, fmt.Errorf("pass-cli execution failed: %w", err)
 	}

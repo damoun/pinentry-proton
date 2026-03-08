@@ -421,6 +421,53 @@ func TestRetrievePassword_ContextCancellation(t *testing.T) {
 	}
 }
 
+// TestRetrievePassword_StderrNotCorruptingPassword tests that stderr output from pass-cli
+// does not get mixed into the returned password (Bug 1 fix verification)
+func TestRetrievePassword_StderrNotCorruptingPassword(t *testing.T) {
+	tmpDir := t.TempDir()
+	cliPath := filepath.Join(tmpDir, "mock-pass-cli-stderr")
+
+	// Script that prints a warning to stderr and the password to stdout
+	script := `#!/bin/bash
+echo "Warning: deprecated API" >&2
+echo "clean-password"
+exit 0
+`
+	if err := os.WriteFile(cliPath, []byte(script), 0755); err != nil { //nolint:gosec // G306
+		t.Fatalf("Failed to create mock CLI: %v", err)
+	}
+
+	client := NewClient()
+	client.SetCLIPath(cliPath)
+
+	ctx := context.Background()
+	password, err := client.RetrievePassword(ctx, "pass://vault/item/password")
+
+	if err != nil {
+		t.Fatalf("Expected no error, got: %v", err)
+	}
+
+	if string(password) != "clean-password" {
+		t.Errorf("Password corrupted by stderr: got %q, want %q", string(password), "clean-password")
+	}
+}
+
+// TestRetrievePassword_EmptyField tests that an empty field in URI is rejected (Bug 3 fix)
+func TestRetrievePassword_EmptyField(t *testing.T) {
+	client := NewClient()
+	ctx := context.Background()
+
+	_, err := client.RetrievePassword(ctx, "pass://vault/item/")
+
+	if err == nil {
+		t.Fatal("Expected error for empty field, got nil")
+	}
+
+	if !strings.Contains(err.Error(), "invalid item URI format") {
+		t.Errorf("Expected 'invalid item URI format' error, got: %v", err)
+	}
+}
+
 // TestZeroBytes verifies memory zeroing
 func TestZeroBytes(t *testing.T) {
 	tests := []struct {
@@ -498,20 +545,12 @@ func createMockCLI(tb testing.TB, vault, item, field, password string) string {
 	script := fmt.Sprintf(`#!/bin/bash
 # Mock pass-cli for testing
 
-if [ "$1" = "item" ] && [ "$2" = "get" ]; then
-    ITEM_REF="$3"
-    FIELD="password"
+if [ "$1" = "item" ] && [ "$2" = "view" ]; then
+    # URI format: pass://vault/item/field
+    URI="$3"
+    EXPECTED_URI="pass://%s/%s/%s"
 
-    # Parse --field flag if present
-    if [ "$4" = "--field" ]; then
-        FIELD="$5"
-    fi
-
-    # Expected values
-    EXPECTED_REF="%s/%s"
-    EXPECTED_FIELD="%s"
-
-    if [ "$ITEM_REF" = "$EXPECTED_REF" ] && [ "$FIELD" = "$EXPECTED_FIELD" ]; then
+    if [ "$URI" = "$EXPECTED_URI" ]; then
         echo "%s"
         exit 0
     fi

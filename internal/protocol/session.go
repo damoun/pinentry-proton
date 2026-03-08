@@ -48,12 +48,16 @@ type Session struct {
 
 // NewSession creates a new pinentry session
 func NewSession(reader io.Reader, writer io.Writer, cfg *config.Config) *Session {
+	timeout := DefaultTimeout
+	if cfg.Timeout > 0 {
+		timeout = time.Duration(cfg.Timeout) * time.Second
+	}
 	return &Session{
 		reader:        bufio.NewReader(reader),
 		writer:        writer,
 		config:        cfg,
 		client:        protonpass.NewClient(),
-		timeout:       DefaultTimeout,
+		timeout:       timeout,
 		sensitiveData: make([][]byte, 0),
 	}
 }

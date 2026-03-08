@@ -205,6 +205,41 @@ func TestProtocolCommands(t *testing.T) {
 	}
 }
 
+func TestNewSession_TimeoutFromConfig(t *testing.T) {
+	tests := []struct {
+		name            string
+		configTimeout   int
+		expectedTimeout time.Duration
+	}{
+		{
+			name:            "uses config timeout",
+			configTimeout:   30,
+			expectedTimeout: 30 * time.Second,
+		},
+		{
+			name:            "uses default when config timeout is zero",
+			configTimeout:   0,
+			expectedTimeout: DefaultTimeout,
+		},
+		{
+			name:            "uses config timeout of 120s",
+			configTimeout:   120,
+			expectedTimeout: 120 * time.Second,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := &config.Config{Timeout: tt.configTimeout}
+			session := NewSession(strings.NewReader(""), &bytes.Buffer{}, cfg)
+
+			if session.timeout != tt.expectedTimeout {
+				t.Errorf("Expected timeout %v, got %v", tt.expectedTimeout, session.timeout)
+			}
+		})
+	}
+}
+
 func TestMultipleCommands(t *testing.T) {
 	input := strings.NewReader(`SETDESC Test description
 SETPROMPT PIN:

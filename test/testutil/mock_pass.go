@@ -119,10 +119,10 @@ if [ -f "$FAILURE_FILE" ]; then
 fi
 
 # Parse arguments
+# Usage: pass-cli item view pass://VAULT/ITEM/FIELD
 COMMAND=""
 SUBCOMMAND=""
-ITEM_REF=""
-FIELD="password"
+URI=""
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -130,29 +130,29 @@ while [[ $# -gt 0 ]]; do
             COMMAND="item"
             shift
             ;;
-        get)
-            SUBCOMMAND="get"
-            shift
-            ;;
-        --field)
-            shift
-            FIELD="$1"
+        view)
+            SUBCOMMAND="view"
             shift
             ;;
         *)
-            if [ -z "$ITEM_REF" ]; then
-                ITEM_REF="$1"
+            if [ -z "$URI" ]; then
+                URI="$1"
             fi
             shift
             ;;
     esac
 done
 
-# Handle item get command
-if [ "$COMMAND" = "item" ] && [ "$SUBCOMMAND" = "get" ]; then
-    # Parse vault/item from reference
-    VAULT=$(echo "$ITEM_REF" | cut -d/ -f1)
-    ITEM=$(echo "$ITEM_REF" | cut -d/ -f2)
+# Handle item view command
+if [ "$COMMAND" = "item" ] && [ "$SUBCOMMAND" = "view" ]; then
+    # Parse vault/item/field from URI: pass://VAULT/ITEM/FIELD
+    PATH_PART="${URI#pass://}"
+    VAULT=$(echo "$PATH_PART" | cut -d/ -f1)
+    ITEM=$(echo "$PATH_PART" | cut -d/ -f2)
+    FIELD=$(echo "$PATH_PART" | cut -d/ -f3)
+    if [ -z "$FIELD" ]; then
+        FIELD="password"
+    fi
 
     # Look up in data file
     VALUE=$(grep "^$VAULT/$ITEM/$FIELD=" "%s" | cut -d= -f2-)

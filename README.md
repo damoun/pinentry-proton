@@ -4,6 +4,7 @@ A secure pinentry program that integrates ProtonPass with GPG and SSH agents. Th
 
 ## Table of Contents
 
+- [Quick Start](#quick-start)
 - [Features](#features)
 - [How It Works](#how-it-works)
 - [Prerequisites](#prerequisites)
@@ -28,6 +29,99 @@ A secure pinentry program that integrates ProtonPass with GPG and SSH agents. Th
 - **No secrets in logs**: Never logs passwords or sensitive data
 - **Timeout support**: Configurable timeouts for password retrieval
 
+## Quick Start
+
+Complete setup in 5 steps:
+
+### 1. Install prerequisites
+
+```bash
+# macOS
+brew install gnupg protonpass-cli
+
+# Linux (Debian/Ubuntu)
+apt install gnupg
+# Install pass-cli from https://github.com/protonpass/pass-cli/releases
+```
+
+### 2. Install pinentry-proton
+
+```bash
+git clone https://github.com/damoun/pinentry-proton.git
+cd pinentry-proton
+make build
+sudo make install
+```
+
+### 3. Store your passphrase in ProtonPass
+
+```bash
+# Log in to ProtonPass CLI
+pass-cli login
+
+# Store your GPG or SSH key passphrase
+pass-cli item create login \
+  --vault "Personal" \
+  --title "GPG Key" \
+  --password "your-key-passphrase"
+```
+
+### 4. Create the configuration file
+
+```bash
+mkdir -p ~/.config/pinentry-proton
+cat > ~/.config/pinentry-proton/config.yaml << 'EOF'
+default_item: "pass://Personal/GPG Key/password"
+EOF
+```
+
+For multiple keys, see [Configuration](#configuration) for mapping rules.
+
+### 5. Configure GPG agent to use pinentry-proton
+
+```bash
+mkdir -p ~/.gnupg
+echo "pinentry-program /usr/local/bin/pinentry-proton" >> ~/.gnupg/gpg-agent.conf
+gpgconf --kill gpg-agent
+```
+
+That's it. The next GPG or SSH operation will retrieve your passphrase from ProtonPass automatically.
+
+---
+
+### YubiKey / Smartcard Setup
+
+YubiKey GPG cards prompt for a PIN when signing. To retrieve the PIN from ProtonPass:
+
+**1. Find your card's key grip:**
+```bash
+gpg --card-status
+# Note the "General key info" fingerprint
+gpg --with-keygrip -K YOUR_KEY_FINGERPRINT
+# Note the "Keygrip" value
+```
+
+**2. Store your card PIN in ProtonPass:**
+```bash
+pass-cli item create login \
+  --vault "Personal" \
+  --title "YubiKey PIN" \
+  --password "your-yubikey-pin"
+```
+
+**3. Map the keygrip in your config:**
+```yaml
+mappings:
+  - name: "YubiKey PIN"
+    item: "pass://Personal/YubiKey PIN/password"
+    match:
+      keyinfo: "YOUR_KEYGRIP_HERE"
+```
+
+**Tip:** If you don't know the exact keygrip yet, use `PINENTRY_PROTON_DEBUG=1` while running a GPG operation to see the `keyinfo` value in the logs, then add it to your config.
+
+---
+
 ## Workflow: Sign Commits Without Repeated PIN Entry
 
 **Primary Use Case:** Sign git commits (and perform other GPG/SSH operations) seamlessly without manual PIN entry.
@@ -43,7 +137,7 @@ A secure pinentry program that integrates ProtonPass with GPG and SSH agents. Th
 **Example workflow:**
 ```bash
 # Unlock ProtonPass once at the start of your day
-pass-cli auth login
+pass-cli login
 
 # Now sign commits seamlessly
 git commit -S -m "feat: add new feature"    # Signs without prompting for PIN
@@ -60,7 +154,7 @@ ssh git@github.com                           # Uses key without prompting for pa
 
 1. GPG/SSH agent requests a PIN via the pinentry protocol
 2. Pinentry-Proton matches the request to a configured ProtonPass item
-3. Retrieves the password using `pass-cli item view`
+3. Retrieves the password using `pass-cli item view pass://VAULT/ITEM/FIELD`
 4. Securely returns the password to the agent
 5. Zeros password from memory
 
@@ -108,7 +202,7 @@ mappings:
     item: "pass://Work/GitHub SSH Key/password"
     match:
       description: "github"
-      
+
   - name: "Personal GPG Key"
     item: "pass://Personal/GPG Key/passphrase"
     match:
@@ -190,7 +284,7 @@ pass-cli item create login \
   --share-id "YOUR_VAULT_SHARE_ID" \
   --title "GitHub SSH Key" \
   --password "your-ssh-key-passphrase"
-  
+
 # Configure pinentry-proton to use it
 # In config.yaml:
 # - name: "GitHub SSH Key"
@@ -198,6 +292,20 @@ pass-cli item create login \
 #   match:
 #     description: "github"
 ```
+
+### Finding Your Item URI
+
+Use `pass-cli item view` to look up an item and confirm the exact vault and title to use in your URI:
+
+```bash
+# Look up by vault name and item title
+pass-cli item view --vault-name "Personal" --item-title "GPG Key"
+
+# Once you have the correct names, verify the URI resolves correctly
+pass-cli item view 'pass://Personal/GPG Key/password'
+```
+
+If the second command returns your passphrase, the URI is correct and ready to use in `config.yaml`.
 
 ### ProtonPass URI Format
 
@@ -280,19 +388,19 @@ To discover what values to match on:
 
 ### What This Tool Does
 
-✅ Retrieves passwords from ProtonPass securely  
-✅ Zeros passwords from memory after use  
-✅ Never logs passwords or sensitive data  
-✅ Handles signals gracefully (SIGINT, SIGTERM)  
-✅ Uses secure ProtonPass CLI communication  
-✅ Implements proper pinentry protocol  
+✅ Retrieves passwords from ProtonPass securely
+✅ Zeros passwords from memory after use
+✅ Never logs passwords or sensitive data
+✅ Handles signals gracefully (SIGINT, SIGTERM)
+✅ Uses secure ProtonPass CLI communication
+✅ Implements proper pinentry protocol
 
 ### What This Tool Does NOT Do
 
-❌ Does not store passwords persistently  
-❌ Does not cache passwords in memory  
-❌ Does not expose passwords via command-line arguments  
-❌ Does not write passwords to disk or logs  
+❌ Does not store passwords persistently
+❌ Does not cache passwords in memory
+❌ Does not expose passwords via command-line arguments
+❌ Does not write passwords to disk or logs
 
 ### Prerequisites for Security
 
@@ -345,8 +453,11 @@ Your `config.yaml` contains:
 
 **Debug:**
 ```bash
-# Test pass-cli directly
-pass-cli item view "pass://YOUR_VAULT/YOUR_ITEM/password"
+# Find the exact vault and item names
+pass-cli item view --vault-name "YOUR_VAULT" --item-title "YOUR_ITEM"
+
+# Verify the URI resolves correctly
+pass-cli item view 'pass://YOUR_VAULT/YOUR_ITEM/password'
 ```
 
 ### "pass-cli: command not found"

@@ -502,10 +502,10 @@ mappings:
 func createMockPassCLI(t *testing.T, path, password string) {
 	t.Helper()
 	script := fmt.Sprintf(`#!/bin/sh
-# Mock pass-cli that handles "item get" subcommands
-# Usage: pass-cli item get <item-ref> --field <field>
+# Mock pass-cli that handles "item view" subcommands
+# Usage: pass-cli item view <pass://vault/item/field>
 
-if [ "$1" = "item" ] && [ "$2" = "get" ]; then
+if [ "$1" = "item" ] && [ "$2" = "view" ]; then
     # Return the test password regardless of item/field
     echo "%s"
     exit 0

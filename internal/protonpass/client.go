@@ -2,6 +2,7 @@
 package protonpass
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"log"
@@ -81,6 +82,7 @@ func (c *Client) RetrievePassword(ctx context.Context, itemURI string) ([]byte, 
 	var stderrBuf strings.Builder
 	cmd.Stderr = &stderrBuf
 	output, err := cmd.Output()
+	defer ZeroBytes(output)
 	if err != nil {
 		stderrOutput := stderrBuf.String()
 		if DebugMode {
@@ -92,8 +94,10 @@ func (c *Client) RetrievePassword(ctx context.Context, itemURI string) ([]byte, 
 		return nil, fmt.Errorf("pass-cli execution failed: %w", err)
 	}
 
-	// Trim whitespace
-	password := []byte(strings.TrimSpace(string(output)))
+	// Trim whitespace without string conversion to allow zeroing
+	trimmed := bytes.TrimSpace(output)
+	password := make([]byte, len(trimmed))
+	copy(password, trimmed)
 
 	if len(password) == 0 {
 		return nil, fmt.Errorf("empty password returned from ProtonPass item: %s", itemURI)

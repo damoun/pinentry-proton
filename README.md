@@ -582,9 +582,8 @@ The push-stage hooks mirror the CI/CD pipeline, ensuring that if push hooks pass
 ### Testing
 
 ```bash
-make test-setup      # Create test keys (first time only)
-make test            # Run unit tests
-make test-all        # Run all tests (unit + integration + GPG + SSH)
+make test        # Run unit + integration tests (no ProtonPass needed)
+make test-e2e    # Run E2E tests with mock pass-cli
 ```
 
 ## Project Structure

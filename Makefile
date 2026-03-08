@@ -1,4 +1,4 @@
-.PHONY: build install test coverage lint clean help test-unit test-e2e test-realpass benchmark benchmark-save benchmark-compare
+.PHONY: build install test coverage lint clean help test-unit test-e2e benchmark benchmark-save benchmark-compare
 
 # Build variables
 BINARY_NAME=pinentry-proton
@@ -53,25 +53,6 @@ test:
 test-short:
 	$(GOTEST) -v ./...
 
-## test-integration: Run integration tests
-test-integration: build
-	@./test/run_go_tests.sh
-
-## test-gpg: Run GPG integration tests
-test-gpg: build
-	@./test/test_gpg.sh
-
-## test-ssh: Run SSH integration tests
-test-ssh: build
-	@./test/test_ssh.sh
-
-## test-all: Run all tests (unit + integration + GPG + SSH)
-test-all: build
-	@./test/run_all_tests.sh
-
-## test-setup: Setup test keys (GPG and SSH)
-test-setup:
-	@./test/setup_test_keys.sh
 
 ## coverage: Run tests with coverage report
 coverage:
@@ -110,11 +91,6 @@ test-ci: test-unit test-coverage-check
 test-e2e: build
 	$(GOTEST) -v -race ./test/e2e/...
 
-## test-realpass: Run tests with real ProtonPass (requires auth)
-test-realpass:
-	@echo "Running tests with real pass-cli..."
-	@echo "Requires: pass-cli authenticated + test vault"
-	$(GOTEST) -v -tags=realpass ./...
 
 ## benchmark: Run all benchmarks
 benchmark:

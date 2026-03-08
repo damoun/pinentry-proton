@@ -40,27 +40,27 @@ func CreateTestConfig(t *testing.T, config TestConfig) string {
 	configPath := filepath.Join(tmpDir, "config.yaml")
 
 	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf("default_item: \"%s\"\n", config.DefaultItem))
-	sb.WriteString(fmt.Sprintf("timeout: %d\n", config.Timeout))
+	fmt.Fprintf(&sb, "default_item: \"%s\"\n", config.DefaultItem)
+	fmt.Fprintf(&sb, "timeout: %d\n", config.Timeout)
 
 	if len(config.Mappings) > 0 {
 		sb.WriteString("\nmappings:\n")
 		for _, mapping := range config.Mappings {
-			sb.WriteString(fmt.Sprintf("  - name: \"%s\"\n", mapping.Name))
-			sb.WriteString(fmt.Sprintf("    item: \"%s\"\n", mapping.Item))
+			fmt.Fprintf(&sb, "  - name: \"%s\"\n", mapping.Name)
+			fmt.Fprintf(&sb, "    item: \"%s\"\n", mapping.Item)
 			sb.WriteString("    match:\n")
 
 			if mapping.Match.Description != "" {
-				sb.WriteString(fmt.Sprintf("      description: \"%s\"\n", mapping.Match.Description))
+				fmt.Fprintf(&sb, "      description: \"%s\"\n", mapping.Match.Description)
 			}
 			if mapping.Match.Prompt != "" {
-				sb.WriteString(fmt.Sprintf("      prompt: \"%s\"\n", mapping.Match.Prompt))
+				fmt.Fprintf(&sb, "      prompt: \"%s\"\n", mapping.Match.Prompt)
 			}
 			if mapping.Match.Title != "" {
-				sb.WriteString(fmt.Sprintf("      title: \"%s\"\n", mapping.Match.Title))
+				fmt.Fprintf(&sb, "      title: \"%s\"\n", mapping.Match.Title)
 			}
 			if mapping.Match.KeyInfo != "" {
-				sb.WriteString(fmt.Sprintf("      keyinfo: \"%s\"\n", mapping.Match.KeyInfo))
+				fmt.Fprintf(&sb, "      keyinfo: \"%s\"\n", mapping.Match.KeyInfo)
 			}
 		}
 	}

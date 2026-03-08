@@ -154,7 +154,7 @@ ssh git@github.com                           # Uses key without prompting for pa
 
 1. GPG/SSH agent requests a PIN via the pinentry protocol
 2. Pinentry-Proton matches the request to a configured ProtonPass item
-3. Retrieves the password using `pass-cli item view`
+3. Retrieves the password using `pass-cli item view pass://VAULT/ITEM/FIELD`
 4. Securely returns the password to the agent
 5. Zeros password from memory
 

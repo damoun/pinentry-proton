@@ -344,7 +344,9 @@ The matcher in `internal/config/config.go` uses case-insensitive substring match
 - Uses `pass-cli item view pass://VAULT/ITEM/FIELD` command (field embedded in URI)
 - Parses URI format: `pass://VAULT/ITEM/FIELD`
 - Default field is `password` if not specified
+- The field MUST be embedded in the URI path — `--field` flag does NOT return a single value
 - No passwords in command-line args (retrieved from stdout)
+- Stderr is captured separately from stdout to prevent warnings from corrupting the password
 
 ## Critical Security Requirements
 

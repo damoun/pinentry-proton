@@ -4,6 +4,7 @@ A secure pinentry program that integrates ProtonPass with GPG and SSH agents. Th
 
 ## Table of Contents
 
+- [Quick Start](#quick-start)
 - [Features](#features)
 - [How It Works](#how-it-works)
 - [Prerequisites](#prerequisites)
@@ -27,6 +28,99 @@ A secure pinentry program that integrates ProtonPass with GPG and SSH agents. Th
 - **Cross-platform**: Works on macOS and Linux
 - **No secrets in logs**: Never logs passwords or sensitive data
 - **Timeout support**: Configurable timeouts for password retrieval
+
+## Quick Start
+
+Complete setup in 5 steps:
+
+### 1. Install prerequisites
+
+```bash
+# macOS
+brew install gnupg protonpass-cli
+
+# Linux (Debian/Ubuntu)
+apt install gnupg
+# Install pass-cli from https://github.com/protonpass/pass-cli/releases
+```
+
+### 2. Install pinentry-proton
+
+```bash
+git clone https://github.com/damoun/pinentry-proton.git
+cd pinentry-proton
+make build
+sudo make install
+```
+
+### 3. Store your passphrase in ProtonPass
+
+```bash
+# Log in to ProtonPass CLI
+pass-cli auth login
+
+# Store your GPG or SSH key passphrase
+pass-cli item create login \
+  --vault "Personal" \
+  --title "GPG Key" \
+  --password "your-key-passphrase"
+```
+
+### 4. Create the configuration file
+
+```bash
+mkdir -p ~/.config/pinentry-proton
+cat > ~/.config/pinentry-proton/config.yaml << 'EOF'
+default_item: "pass://Personal/GPG Key/password"
+EOF
+```
+
+For multiple keys, see [Configuration](#configuration) for mapping rules.
+
+### 5. Configure GPG agent to use pinentry-proton
+
+```bash
+mkdir -p ~/.gnupg
+echo "pinentry-program /usr/local/bin/pinentry-proton" >> ~/.gnupg/gpg-agent.conf
+gpgconf --kill gpg-agent
+```
+
+That's it. The next GPG or SSH operation will retrieve your passphrase from ProtonPass automatically.
+
+---
+
+### YubiKey / Smartcard Setup
+
+YubiKey GPG cards prompt for a PIN when signing. To retrieve the PIN from ProtonPass:
+
+**1. Find your card's key grip:**
+```bash
+gpg --card-status
+# Note the "General key info" fingerprint
+gpg --with-keygrip -K YOUR_KEY_FINGERPRINT
+# Note the "Keygrip" value
+```
+
+**2. Store your card PIN in ProtonPass:**
+```bash
+pass-cli item create login \
+  --vault "Personal" \
+  --title "YubiKey PIN" \
+  --password "your-yubikey-pin"
+```
+
+**3. Map the keygrip in your config:**
+```yaml
+mappings:
+  - name: "YubiKey PIN"
+    item: "pass://Personal/YubiKey PIN/password"
+    match:
+      keyinfo: "YOUR_KEYGRIP_HERE"
+```
+
+**Tip:** If you don't know the exact keygrip yet, use `PINENTRY_PROTON_DEBUG=1` while running a GPG operation to see the `keyinfo` value in the logs, then add it to your config.
+
+---
 
 ## Workflow: Sign Commits Without Repeated PIN Entry
 
@@ -108,7 +202,7 @@ mappings:
     item: "pass://Work/GitHub SSH Key/password"
     match:
       description: "github"
-      
+
   - name: "Personal GPG Key"
     item: "pass://Personal/GPG Key/passphrase"
     match:
@@ -190,7 +284,7 @@ pass-cli item create login \
   --share-id "YOUR_VAULT_SHARE_ID" \
   --title "GitHub SSH Key" \
   --password "your-ssh-key-passphrase"
-  
+
 # Configure pinentry-proton to use it
 # In config.yaml:
 # - name: "GitHub SSH Key"
@@ -280,19 +374,19 @@ To discover what values to match on:
 
 ### What This Tool Does
 
-✅ Retrieves passwords from ProtonPass securely  
-✅ Zeros passwords from memory after use  
-✅ Never logs passwords or sensitive data  
-✅ Handles signals gracefully (SIGINT, SIGTERM)  
-✅ Uses secure ProtonPass CLI communication  
-✅ Implements proper pinentry protocol  
+✅ Retrieves passwords from ProtonPass securely
+✅ Zeros passwords from memory after use
+✅ Never logs passwords or sensitive data
+✅ Handles signals gracefully (SIGINT, SIGTERM)
+✅ Uses secure ProtonPass CLI communication
+✅ Implements proper pinentry protocol
 
 ### What This Tool Does NOT Do
 
-❌ Does not store passwords persistently  
-❌ Does not cache passwords in memory  
-❌ Does not expose passwords via command-line arguments  
-❌ Does not write passwords to disk or logs  
+❌ Does not store passwords persistently
+❌ Does not cache passwords in memory
+❌ Does not expose passwords via command-line arguments
+❌ Does not write passwords to disk or logs
 
 ### Prerequisites for Security
 

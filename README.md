@@ -293,6 +293,20 @@ pass-cli item create login \
 #     description: "github"
 ```
 
+### Finding Your Item URI
+
+Use `pass-cli item view` to look up an item and confirm the exact vault and title to use in your URI:
+
+```bash
+# Look up by vault name and item title
+pass-cli item view --vault-name "Personal" --item-title "GPG Key"
+
+# Once you have the correct names, verify the URI resolves correctly
+pass-cli item view 'pass://Personal/GPG Key/password'
+```
+
+If the second command returns your passphrase, the URI is correct and ready to use in `config.yaml`.
+
 ### ProtonPass URI Format
 
 Use one of these formats:
@@ -439,8 +453,11 @@ Your `config.yaml` contains:
 
 **Debug:**
 ```bash
-# Test pass-cli directly
-pass-cli item view "pass://YOUR_VAULT/YOUR_ITEM/password"
+# Find the exact vault and item names
+pass-cli item view --vault-name "YOUR_VAULT" --item-title "YOUR_ITEM"
+
+# Verify the URI resolves correctly
+pass-cli item view 'pass://YOUR_VAULT/YOUR_ITEM/password'
 ```
 
 ### "pass-cli: command not found"

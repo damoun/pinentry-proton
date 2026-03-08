@@ -545,20 +545,12 @@ func createMockCLI(tb testing.TB, vault, item, field, password string) string {
 	script := fmt.Sprintf(`#!/bin/bash
 # Mock pass-cli for testing
 
-if [ "$1" = "item" ] && [ "$2" = "get" ]; then
-    ITEM_REF="$3"
-    FIELD="password"
+if [ "$1" = "item" ] && [ "$2" = "view" ]; then
+    # URI format: pass://vault/item/field
+    URI="$3"
+    EXPECTED_URI="pass://%s/%s/%s"
 
-    # Parse --field flag if present
-    if [ "$4" = "--field" ]; then
-        FIELD="$5"
-    fi
-
-    # Expected values
-    EXPECTED_REF="%s/%s"
-    EXPECTED_FIELD="%s"
-
-    if [ "$ITEM_REF" = "$EXPECTED_REF" ] && [ "$FIELD" = "$EXPECTED_FIELD" ]; then
+    if [ "$URI" = "$EXPECTED_URI" ]; then
         echo "%s"
         exit 0
     fi

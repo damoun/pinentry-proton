@@ -67,15 +67,15 @@ func (c *Client) RetrievePassword(ctx context.Context, itemURI string) ([]byte, 
 		field = parts[2]
 	}
 
-	// Build the item reference (vault/item)
-	itemRef := strings.Join(parts[:2], "/")
+	// Build the full URI with field embedded: pass://vault/item/field
+	fullURI := "pass://" + strings.Join(parts[:2], "/") + "/" + field
 
 	if DebugMode {
-		log.Printf("[DEBUG] Item reference: %s, field: %s", itemRef, field)
+		log.Printf("[DEBUG] Full URI: %s", fullURI)
 	}
 
-	// Execute pass-cli to get the item
-	cmd := exec.CommandContext(ctx, c.cliPath, "item", "get", itemRef, "--field", field) //nolint:gosec // G204: itemRef/field from user config, cliPath controlled by app
+	// Execute pass-cli to get the item, passing the full URI (field embedded in path)
+	cmd := exec.CommandContext(ctx, c.cliPath, "item", "view", fullURI) //nolint:gosec // G204: fullURI from user config, cliPath controlled by app
 
 	// Capture stdout only; stderr is captured separately to avoid corrupting the password
 	var stderrBuf strings.Builder

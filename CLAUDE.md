@@ -322,7 +322,7 @@ internal/platform/            Platform-specific code (macOS/Linux)
 - `protocol.Session` parses Assuan protocol commands
 - Context fields (description, title, keyinfo) are collected via SET* commands
 - On GETPIN, config matcher finds appropriate ProtonPass item
-- ProtonPass client retrieves password via `pass-cli item get`
+- ProtonPass client retrieves password via `pass-cli item view`
 - Password is percent-encoded and returned via protocol
 - All sensitive data is zeroed from memory
 
@@ -341,7 +341,7 @@ The matcher in `internal/config/config.go` uses case-insensitive substring match
 - **Context Cancellation**: All operations respect context timeouts
 
 **4. ProtonPass Integration**
-- Uses `pass-cli item get <vault/item> --field <field>` command
+- Uses `pass-cli item view pass://VAULT/ITEM/FIELD` command (field embedded in URI)
 - Parses URI format: `pass://VAULT/ITEM/FIELD`
 - Default field is `password` if not specified
 - No passwords in command-line args (retrieved from stdout)

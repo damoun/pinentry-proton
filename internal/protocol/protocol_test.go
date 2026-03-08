@@ -83,13 +83,12 @@ func TestSessionReset(t *testing.T) {
 	session.description = "test desc"
 	session.prompt = "test prompt"
 	session.title = "test title"
-	session.error = "test error"
 	session.keyInfo = "test keyinfo"
 
 	session.reset()
 
 	if session.description != "" || session.prompt != "" ||
-		session.title != "" || session.error != "" || session.keyInfo != "" {
+		session.title != "" || session.keyInfo != "" {
 		t.Error("Session not properly reset")
 	}
 }

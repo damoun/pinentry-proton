@@ -8,10 +8,10 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"runtime"
 	"syscall"
 
 	"github.com/damoun/pinentry-proton/internal/config"
-	"github.com/damoun/pinentry-proton/internal/platform"
 	"github.com/damoun/pinentry-proton/internal/protocol"
 )
 
@@ -27,19 +27,12 @@ func main() {
 	if protocol.DebugMode {
 		log.SetOutput(os.Stderr)
 		log.Printf("[DEBUG] Pinentry-Proton v%s starting in debug mode", protocol.Version)
-		log.Printf("[DEBUG] Platform: %s", platform.Info())
+		log.Printf("[DEBUG] Platform: %s", runtime.GOOS)
 		log.Printf("[DEBUG] Loaded %d mappings", len(cfg.Mappings))
 	} else {
 		// Disable logging in production
 		log.SetOutput(io.Discard)
 	}
-
-	// Setup platform-specific features
-	if err := platform.Setup(); err != nil {
-		fmt.Fprintf(os.Stderr, "Platform setup error: %v\n", err)
-		os.Exit(1)
-	}
-	defer platform.Cleanup()
 
 	// Setup signal handling
 	ctx, cancel := context.WithCancel(context.Background())

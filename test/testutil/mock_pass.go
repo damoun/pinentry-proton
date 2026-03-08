@@ -203,7 +203,7 @@ func (m *MockPassCLI) writeDataFile(t *testing.T, path string) {
 	for vault, items := range m.vault {
 		for item, fields := range items {
 			for field, value := range fields {
-				sb.WriteString(fmt.Sprintf("%s/%s/%s=%s\n", vault, item, field, value))
+				fmt.Fprintf(&sb, "%s/%s/%s=%s\n", vault, item, field, value)
 			}
 		}
 	}

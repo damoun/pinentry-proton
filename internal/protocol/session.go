@@ -39,7 +39,6 @@ type Session struct {
 	description string
 	prompt      string
 	title       string
-	error       string
 	keyInfo     string
 
 	// Cleanup tracking
@@ -119,7 +118,6 @@ func (s *Session) handleCommand(ctx context.Context, cmd, arg string) error {
 		s.title = UnescapeArg(arg)
 		return s.writeOK("")
 	case "SETERROR":
-		s.error = UnescapeArg(arg)
 		return s.writeOK("")
 	case "SETKEYINFO":
 		s.keyInfo = UnescapeArg(arg)
@@ -154,9 +152,9 @@ func (s *Session) handleGetPin(ctx context.Context) error {
 	itemURI := s.config.FindItemForContext(s.description, s.prompt, s.title, s.keyInfo)
 
 	if DebugMode {
-		log.Printf("[DEBUG] Context: desc=%q prompt=%q title=%q keyinfo=%q",
+		log.Printf("[DEBUG] Context: desc=%q prompt=%q title=%q keyinfo=%q", //nolint:gosec // G706: debug logging of user-provided context is intentional
 			s.description, s.prompt, s.title, s.keyInfo)
-		log.Printf("[DEBUG] Matched item: %s", itemURI)
+		log.Printf("[DEBUG] Matched item: %s", itemURI) //nolint:gosec // G706: debug logging of config URI is intentional
 	}
 
 	if itemURI == "" {
@@ -202,7 +200,6 @@ func (s *Session) reset() {
 	s.description = ""
 	s.prompt = ""
 	s.title = ""
-	s.error = ""
 	s.keyInfo = ""
 }
 

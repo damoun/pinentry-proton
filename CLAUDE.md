@@ -41,23 +41,6 @@ go test -race ./internal/...
 # Run E2E tests (mock ProtonPass, no auth needed)
 make test-e2e
 
-# Run tests with real ProtonPass (requires auth)
-make test-realpass
-
-# Run integration tests (requires built binary)
-make test-integration
-
-# Run GPG integration tests (requires GPG, pass-cli, test keys)
-make test-gpg
-
-# Run SSH integration tests (requires SSH tools, pass-cli, test keys)
-make test-ssh
-
-# Run ALL tests (unit + integration + GPG + SSH)
-make test-all
-
-# Setup test keys for GPG and SSH
-make test-setup
 
 # Generate coverage report with threshold check (75%)
 make test-coverage-check
@@ -389,9 +372,6 @@ Current coverage:
 
 - **Test PIN**: All tests use `424242` as the test passphrase
 - **Mock Infrastructure**: E2E tests use sophisticated mock pass-cli (no ProtonPass needed)
-- **Optional Real Tests**: Use `-tags=realpass` for tests with real ProtonPass
-- **Test Vault**: Real ProtonPass tests require `pass://test/pinentry-code/password`
-
 ### Test Structure
 
 ```
@@ -400,13 +380,9 @@ test/
 │   ├── fixtures.go          # Config helpers, assertions, setup
 │   └── mock_pass.go         # Mock ProtonPass CLI implementation
 ├── e2e/                     # End-to-end tests (mock-based, CI-friendly)
-│   ├── e2e_test.go          # Complete workflows without ProtonPass
-│   └── e2e_realpass_test.go # Optional tests with real pass-cli
-├── fixtures/                # Test data, keys, mock configs
-├── integration_test.go      # Binary protocol tests
-├── test_gpg.sh             # GPG workflow (requires ProtonPass)
-├── test_ssh.sh             # SSH workflow (requires ProtonPass)
-└── run_all_tests.sh        # Master test runner
+│   └── e2e_test.go          # Complete workflows without ProtonPass
+├── fixtures/                # Test data, mock configs
+└── integration_test.go      # Binary protocol tests
 
 internal/*/
 ├── *_test.go               # Unit tests (table-driven, comprehensive)
@@ -448,7 +424,6 @@ Tests run automatically on GitHub Actions:
 - Coverage enforcement (fails if <75%)
 - Benchmark tracking (artifacts stored for 30 days)
 
-See `TESTING.md` for detailed testing guide.
 
 ## Common Development Patterns
 
@@ -531,8 +506,7 @@ This logs:
 
 - `ARCHITECTURE.md`: Detailed architecture, design principles, data flow
 - `SECURITY.md`: Security policy and threat model
-- `TESTING.md`: Comprehensive testing guide
-- `CONTRIBUTING.md`: Contribution guidelines and code review checklist
+- `CONTRIBUTING.md`: Contribution guidelines
 - `config.example.yaml`: Example configuration with all options
 
 ## Dependencies

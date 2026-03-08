@@ -2,6 +2,7 @@
 package protonpass
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"log"
@@ -81,6 +82,7 @@ func (c *Client) RetrievePassword(ctx context.Context, itemURI string) ([]byte, 
 	var stderrBuf strings.Builder
 	cmd.Stderr = &stderrBuf
 	output, err := cmd.Output()
+	defer ZeroBytes(output)
 	if err != nil {
 		stderrOutput := stderrBuf.String()
 		if DebugMode {
@@ -92,8 +94,8 @@ func (c *Client) RetrievePassword(ctx context.Context, itemURI string) ([]byte, 
 		return nil, fmt.Errorf("pass-cli execution failed: %w", err)
 	}
 
-	// Trim whitespace
-	password := []byte(strings.TrimSpace(string(output)))
+	// Trim whitespace; result is a new slice so output can be safely zeroed
+	password := trimSpaceCopy(output)
 
 	if len(password) == 0 {
 		return nil, fmt.Errorf("empty password returned from ProtonPass item: %s", itemURI)
@@ -111,4 +113,14 @@ func ZeroBytes(b []byte) {
 	for i := range b {
 		b[i] = 0
 	}
+}
+
+// trimSpaceCopy trims whitespace and returns a new independent slice.
+// Unlike bytes.TrimSpace, the result does not share the backing array,
+// so the original can be safely zeroed after this call.
+func trimSpaceCopy(data []byte) []byte {
+	trimmed := bytes.TrimSpace(data)
+	result := make([]byte, len(trimmed))
+	copy(result, trimmed)
+	return result
 }

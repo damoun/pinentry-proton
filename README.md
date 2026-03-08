@@ -57,7 +57,7 @@ sudo make install
 
 ```bash
 # Log in to ProtonPass CLI
-pass-cli auth login
+pass-cli login
 
 # Store your GPG or SSH key passphrase
 pass-cli item create login \
@@ -137,7 +137,7 @@ mappings:
 **Example workflow:**
 ```bash
 # Unlock ProtonPass once at the start of your day
-pass-cli auth login
+pass-cli login
 
 # Now sign commits seamlessly
 git commit -S -m "feat: add new feature"    # Signs without prompting for PIN

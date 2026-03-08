@@ -581,19 +581,11 @@ The push-stage hooks mirror the CI/CD pipeline, ensuring that if push hooks pass
 
 ### Testing
 
-See [TESTING.md](TESTING.md) for comprehensive testing documentation.
-
-**Quick Start:**
-
 ```bash
 make test-setup      # Create test keys (first time only)
 make test            # Run unit tests
 make test-all        # Run all tests (unit + integration + GPG + SSH)
 ```
-
-For detailed testing information, test requirements, and troubleshooting, see:
-- [TESTING.md](TESTING.md) - Comprehensive testing guide
-- [TEST_QUICKREF.md](TEST_QUICKREF.md) - Quick reference card
 
 ## Project Structure
 

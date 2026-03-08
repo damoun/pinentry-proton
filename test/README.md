@@ -165,9 +165,7 @@ gpg --list-keys
 
 ## Documentation
 
-For comprehensive testing documentation, see:
-- [../TESTING.md](../TESTING.md) - Complete testing guide
-- [fixtures/README.md](fixtures/README.md) - Test key documentation
+See [fixtures/README.md](fixtures/README.md) for test key documentation.
 
 ## Contributing
 

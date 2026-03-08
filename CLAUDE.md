@@ -448,7 +448,6 @@ Tests run automatically on GitHub Actions:
 - Coverage enforcement (fails if <75%)
 - Benchmark tracking (artifacts stored for 30 days)
 
-See `TESTING.md` for detailed testing guide.
 
 ## Common Development Patterns
 
@@ -531,8 +530,7 @@ This logs:
 
 - `ARCHITECTURE.md`: Detailed architecture, design principles, data flow
 - `SECURITY.md`: Security policy and threat model
-- `TESTING.md`: Comprehensive testing guide
-- `CONTRIBUTING.md`: Contribution guidelines and code review checklist
+- `CONTRIBUTING.md`: Contribution guidelines
 - `config.example.yaml`: Example configuration with all options
 
 ## Dependencies

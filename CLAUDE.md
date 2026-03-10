@@ -295,7 +295,6 @@ cmd/pinentry-proton/          Entry point, signal handling, orchestration
 internal/config/              Configuration loading and context matching
 internal/protocol/            Pinentry Assuan protocol implementation
 internal/protonpass/          ProtonPass CLI integration
-internal/platform/            Platform-specific code (macOS/Linux)
 ```
 
 ### Key Architectural Concepts
@@ -349,24 +348,16 @@ See SECURITY.md for comprehensive security policy and threat model.
 
 ### Test Suite Overview
 
-The project has **comprehensive test coverage (82.4%)**  with multiple test layers:
+The project has multiple test layers:
 
-- **Unit Tests** - Package-level tests with mocks (protonpass: 88.2%, platform: 100%)
+- **Unit Tests** - Package-level tests with mocks
 - **E2E Tests** - Mock-based application tests (no ProtonPass auth required, runs in CI)
 - **Integration Tests** - Binary protocol tests with real pinentry commands
 - **Benchmarks** - Performance baselines and regression detection
-- **GPG/SSH Tests** - Real cryptographic operations (optional, requires ProtonPass auth)
 
 ### Coverage Enforcement
 
 **Minimum coverage: 75%** - Enforced in CI and `make test-coverage-check`
-
-Current coverage:
-- Overall: **82.4%**
-- ProtonPass: 88.2%
-- Platform: 100%
-- Config: 87.1%
-- Protocol: 77.4%
 
 ### Test Requirements
 
@@ -450,26 +441,6 @@ When touching `internal/protonpass/client.go`:
 - Never log the password content
 - Trim whitespace from pass-cli output
 - Return descriptive errors without including password
-
-## Platform Considerations
-
-### macOS
-- SSH agent integration may prefer system Keychain
-- GPG agent works normally with pinentry-proton
-- Optional Keychain integration in `internal/platform/platform_darwin.go`
-
-### Linux
-- Full SSH and GPG agent support
-- Use `termios` for secure terminal input
-- Optional libsecret integration in `internal/platform/platform_linux.go`
-
-### Build Tags
-Platform-specific code uses build tags:
-```go
-//go:build darwin
-//go:build linux
-//go:build !darwin && !linux
-```
 
 ## Configuration System
 

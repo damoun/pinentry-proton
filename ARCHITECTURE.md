@@ -1,6 +1,6 @@
 # Project Architecture
 
-This document describes the refactored architecture of pinentry-proton, following Go best practices for maintainability, reusability, and readability.
+This document describes the architecture of pinentry-proton, following Go best practices for maintainability, reusability, and readability.
 
 ## Directory Structure
 
@@ -13,32 +13,39 @@ pinentry-proton/
 ├── internal/                       # Private application packages
 │   ├── config/
 │   │   ├── config.go              # Configuration loading and management
-│   │   └── config_test.go         # Configuration tests
+│   │   ├── config_test.go         # Configuration tests
+│   │   └── config_benchmark_test.go
 │   │
 │   ├── protocol/
 │   │   ├── session.go             # Pinentry protocol session management
 │   │   ├── encoding.go            # Percent encoding/decoding utilities
 │   │   ├── protocol_test.go       # Protocol unit tests
+│   │   ├── protocol_benchmark_test.go
 │   │   └── integration_test.go    # Protocol integration tests
 │   │
-│   ├── protonpass/
-│   │   └── client.go              # ProtonPass CLI integration
-│   │
-│   └── platform/
-│       ├── platform_darwin.go     # macOS-specific code
-│       ├── platform_linux.go      # Linux-specific code
-│       └── platform_other.go      # Unsupported platforms
+│   └── protonpass/
+│       ├── client.go              # ProtonPass CLI integration
+│       ├── client_test.go         # ProtonPass client tests
+│       └── client_benchmark_test.go
 │
-├── docs/
-│   ├── SECURITY.md                # Security policy
-│   ├── CONTRIBUTING.md            # Contribution guidelines
-│   └── CLAUDE.md                  # Claude Code guidance
+├── test/
+│   ├── integration_test.go        # Binary protocol tests
+│   ├── e2e/
+│   │   └── e2e_test.go           # Full workflow tests with mock pass-cli
+│   ├── testutil/
+│   │   ├── fixtures.go           # Config helpers, assertions, setup
+│   │   └── mock_pass.go          # Mock ProtonPass CLI implementation
+│   └── fixtures/                  # Test configs, keys, mock data
 │
 ├── config.example.yaml            # Example configuration
 ├── go.mod                         # Go module definition
 ├── go.sum                         # Dependency checksums
 ├── Makefile                       # Build automation
 ├── README.md                      # User documentation
+├── ARCHITECTURE.md                # This file
+├── SECURITY.md                    # Security policy
+├── CONTRIBUTING.md                # Contribution guidelines
+├── CLAUDE.md                      # Claude Code guidance
 └── LICENSE                        # MIT License
 ```
 
@@ -48,10 +55,8 @@ pinentry-proton/
 **Purpose**: Application entry point
 
 **Responsibilities**:
-- Parse command-line arguments (if any)
 - Load configuration
 - Setup logging and debug mode
-- Initialize platform-specific features
 - Create and run protocol session
 - Handle signals (SIGINT, SIGTERM)
 - Coordinate cleanup on exit
@@ -92,7 +97,7 @@ pinentry-proton/
 
 **Key Types**:
 - `Session`: Protocol session state
-  
+
 **Key Functions**:
 - `NewSession()`: Create new protocol session
 - `Run()`: Execute protocol session
@@ -104,7 +109,7 @@ pinentry-proton/
 - `DefaultTimeout`: Default operation timeout
 - `DebugMode`: Debug logging flag
 
-**Dependencies**: 
+**Dependencies**:
 - `internal/config`
 - `internal/protonpass`
 
@@ -128,39 +133,17 @@ pinentry-proton/
 
 **Dependencies**: None (standard library only)
 
-### `internal/platform`
-**Purpose**: Platform-specific functionality
-
-**Responsibilities**:
-- Platform detection
-- Platform-specific initialization
-- Optional platform integration (Keychain, libsecret)
-- Platform-specific cleanup
-
-**Key Functions**:
-- `Info()`: Get platform name
-- `Setup()`: Platform initialization
-- `Cleanup()`: Platform cleanup
-
-**Build Tags**:
-- `darwin`: macOS implementation
-- `linux`: Linux implementation
-- `!darwin,!linux`: Unsupported platforms
-
-**Dependencies**: None
-
 ## Design Principles
 
 ### 1. **Separation of Concerns**
 Each package has a single, well-defined responsibility:
 - Configuration is isolated from protocol logic
 - ProtonPass integration is separate from protocol
-- Platform-specific code is isolated with build tags
 
 ### 2. **Dependency Management**
 - `cmd/` depends on all `internal/` packages
 - `internal/protocol` depends on `config` and `protonpass`
-- `internal/config`, `internal/protonpass`, `internal/platform` have minimal dependencies
+- `internal/config` and `internal/protonpass` have minimal dependencies
 - Circular dependencies are impossible with `internal/` structure
 
 ### 3. **Testability**
@@ -173,13 +156,11 @@ Each package has a single, well-defined responsibility:
 - Protocol encoding functions can be reused
 - Configuration loading logic is independent
 - ProtonPass client can be used standalone
-- Platform detection is isolated
 
 ### 5. **Maintainability**
 - Clear package boundaries
 - Each file has focused responsibility
 - Tests are colocated with code
-- Documentation at package level
 
 ## Security Architecture
 
@@ -201,12 +182,6 @@ Each package has a single, well-defined responsibility:
 - Captures and clears stderr/stdout
 - Timeouts prevent hanging
 
-### Platform Security
-**Responsibility**: `internal/platform`
-- Optional Keychain integration (macOS)
-- Optional libsecret integration (Linux)
-- Defaults to no persistent storage
-
 ## Data Flow
 
 ```
@@ -214,7 +189,6 @@ Each package has a single, well-defined responsibility:
          ↓
 2. cmd/pinentry-proton/main.go
    - Load config (internal/config)
-   - Setup platform (internal/platform)
    - Create session (internal/protocol)
          ↓
 3. internal/protocol.Session.Run()
@@ -233,7 +207,6 @@ Each package has a single, well-defined responsibility:
          ↓
 6. Cleanup
    - Zero all tracked passwords
-   - Platform cleanup
 ```
 
 ## Testing Strategy
@@ -241,14 +214,15 @@ Each package has a single, well-defined responsibility:
 ### Unit Tests
 - **config**: Configuration loading, validation, matching
 - **protocol**: Command parsing, encoding, session state
+- **protonpass**: Client behavior, URI parsing, error handling
 
 ### Integration Tests
-- **protocol**: Full protocol flows, edge cases, cancellation
+- **test/integration_test.go**: Full protocol flows via built binary
+- **test/e2e/**: Complete workflows with mock pass-cli
 
-### No Tests Required
-- **cmd**: Entry point (integration tested via binary)
-- **platform**: Stubs (no logic yet)
-- **protonpass**: External dependency (tested via protocol tests)
+### Benchmarks
+- All internal packages include `*_benchmark_test.go` files
+- Performance baselines tracked via `make benchmark-save`
 
 ## Build and Release
 
@@ -261,7 +235,7 @@ make build
 ### Test
 ```bash
 make test
-# Tests: ./internal/config, ./internal/protocol
+# Tests: ./internal/...
 ```
 
 ### Install
@@ -275,38 +249,13 @@ make install
 ### Easy to Add
 1. **New Protocol Commands**: Add to `internal/protocol/session.go`
 2. **New Configuration Options**: Add to `internal/config/config.go`
-3. **Platform Integration**: Extend `internal/platform/platform_*.go`
-4. **Additional Pass Providers**: New package in `internal/`
+3. **Additional Pass Providers**: New package in `internal/`
 
 ### Package Additions
 Consider adding:
 - `internal/cache/`: Optional password caching (encrypted)
-- `internal/metrics/`: Optional telemetry (opt-in)
-- `internal/gui/`: GUI pinentry mode
+- `internal/platform/`: Platform-specific integrations (Keychain, libsecret)
 - `pkg/protocol/`: Export protocol for use by other tools
-
-## Migration from Old Structure
-
-### What Changed
-- ✅ All Go code moved from root to packages
-- ✅ Clear package boundaries established
-- ✅ Tests colocated with code
-- ✅ No code in repository root
-
-### What Stayed the Same
-- ✅ All functionality preserved
-- ✅ API/behavior unchanged
-- ✅ Configuration format unchanged
-- ✅ Build process (Makefile) mostly unchanged
-- ✅ All tests passing
-
-### Benefits
-- ✅ Better code organization
-- ✅ Easier to understand
-- ✅ Easier to test
-- ✅ Easier to extend
-- ✅ Follows Go best practices
-- ✅ Enables future pkg/ exports
 
 ## References
 

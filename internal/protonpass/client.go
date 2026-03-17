@@ -76,6 +76,7 @@ func (c *Client) RetrievePassword(ctx context.Context, itemURI string) ([]byte, 
 	}
 
 	// Execute pass-cli to get the item, passing the full URI (field embedded in path)
+	// nosemgrep: go.lang.security.audit.dangerous-exec-command.dangerous-exec-command
 	cmd := exec.CommandContext(ctx, c.cliPath, "item", "view", fullURI) //nolint:gosec // G204: fullURI from user config, cliPath controlled by app
 
 	// Capture stdout only; stderr is captured separately to avoid corrupting the password

@@ -141,7 +141,7 @@ jobs:
         echo "BYE" | ./pinentry-proton
         
     - name: Upload binary
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
       with:
         name: pinentry-proton-${{ matrix.os }}
         path: pinentry-proton
@@ -192,7 +192,7 @@ jobs:
         go test -bench=. -benchmem -benchtime=1s -run=^$ ./internal/... | tee benchmark.txt
 
     - name: Store benchmark results
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
       with:
         name: benchmark-results
         path: benchmark.txt

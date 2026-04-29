@@ -409,7 +409,7 @@ internal/*/
 ### CI/CD Integration
 
 Tests run automatically on GitHub Actions:
-- Matrix: Ubuntu + macOS, Go 1.21 + 1.22
+- Matrix: Ubuntu + macOS, Go 1.25 + 1.26
 - Unit tests with race detection
 - E2E tests (no ProtonPass needed)
 - Coverage enforcement (fails if <75%)

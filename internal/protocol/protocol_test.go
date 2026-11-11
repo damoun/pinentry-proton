@@ -167,7 +167,11 @@ func TestProtocolCommands(t *testing.T) {
 			}()
 
 			select {
-			case <-done:
+			case err := <-done:
+				if err != nil {
+					t.Errorf("Run returned error: %v", err)
+				}
+
 				result := output.String()
 
 				// First line should be the initial OK

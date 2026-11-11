@@ -169,7 +169,7 @@ func TestProtocolCommands(t *testing.T) {
 			select {
 			case err := <-done:
 				if err != nil {
-					t.Errorf("Run returned error: %v", err)
+					t.Errorf("Unexpected error: %v", err)
 				}
 
 				result := output.String()
